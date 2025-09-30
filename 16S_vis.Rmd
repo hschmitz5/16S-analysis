@@ -9,7 +9,6 @@ output:
     toc: yes
     toc_float: yes
 ---
-This notebook provides example code and suggestions for analyzing microbiome sequence data. You can perform similar analysis in Python using the QIIME Artifact API, but I am much more comfortable and familiar with R for any kind of data analysis and plotting. This is just a personal preference, as both programming languages and external packages can perform the same tasks. I use R because I find data manipulation with the dplyr package and plotting with the ggplot2 package to be much more intuitive than doing the same thing in Python.
 
 # To clear environment
 rm(list = ls())
@@ -26,8 +25,6 @@ library(phyloseq)
 library(tidyverse)
 library(vegan)
 
-library(readxl)
-
 # optional
 library(MetBrewer) # fun color palettes
 ```
@@ -39,25 +36,12 @@ I read in the QIIME artifacts as a phyloseq object. Phyloseq is an R package tha
 
 getwd() 
 
-#setwd("C:/Users/schmi/OneDrive/Documents/GitHub/16S_analysis") # For Windows
-
 ps <- qiime2R::qza_to_phyloseq(
   features="./data/table_dada2.qza",
   tree="./data/rooted_tree.qza",
   taxonomy="./data/taxonomy.qza",
   metadata = "./data/sample-metadata.tsv" 
 )
-
-#metadata <- read_q2metadata("./data/metadata.txt")
-##rownames(metadata) <- gsub("-", ".", rownames(metadata))
-#sam_dat <- sample_data(metadata)
-
-#physeq_final <- merge_phyloseq(physeq_obj, sam_dat)
-
-
-#metadata<-read_excel("./data/metadata.xlsx") # is data.frame
-
-#head(metadata)
 
 # factor the size metadata
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"))
@@ -154,20 +138,22 @@ I considered making a boxplot, but I only have two data points. It is recommende
 # Single scatter plot
 ```{r plot_scatter_single}
 gs.ca_ac %>%
-  ggplot(aes(x = size.mm, y = sum_ab, fill = duplicate.id)) +
+  ggplot(aes(x = size.mm, y = sum_ab)) + #, fill = duplicate.id)) +
   geom_point(
     shape = 21,
     color = "black",
     size = 3,
     stroke = 1
   ) +
-  scale_fill_manual(
-    values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),   # A = filled, B = empty
-    na.value = "white"                       # fallback fill color for NA
-  ) +
-  labs(title = "Ca_Accumulibacter", fill = "Replicate ID") +
+  #scale_fill_manual(
+    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),   # A = filled, B = empty
+    #na.value = "white"                       # fallback fill color for NA
+  #) +
+  labs(title = "Ca_Accumulibacter") + #, fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance")
+
+ggsave("./results/genus_ca_ac.png")
 ```
 
 # Multiple subplots
@@ -189,6 +175,8 @@ gs.pac %>%
   labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance")
+
+ggsave("./results/genus_pac.png")
 ```
 
 We can save that table as a new R data frame, or we can pipe that data directly into a ggplot2 command. Notice that the timepoint column is the "character" class rather than a numeric class like a "double" Let's add a modification so the timepoint column is correctly classified.
@@ -201,8 +189,7 @@ We can save that table as a new R data frame, or we can pipe that data directly 
 # Base plot (no fill here)
 p <- plot_richness(ps_filt, 
                    x = "size.mm", 
-                   measures = c("Chao1", "Shannon"))
-# x = "size_ordered", 
+                   measures = c("Chao1")) #, "Shannon"))
 
 # Add custom geom_point with manual fill scale
 p + 
@@ -220,6 +207,8 @@ p +
   labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
+
+ggsave("./results/diversity.png")
 ```
 
 # Ordination 
@@ -231,10 +220,11 @@ cols <- c('red','orange','green', 'blue', 'violet', 'black')
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
-                     scale_color_manual(values=cols)
+                     scale_color_manual(values=cols) 
+  
 print(p1)
 
-ggsave("NMDS.png", plot = p1, scale = 1,dpi = 300)
+ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 
 # ntaxa(ps_filt) # how many ASVs are there?
 ```
@@ -245,7 +235,7 @@ p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PC
                      scale_color_manual(values=cols)
 
 print(p1)
-ggsave("PCoA.png", plot = p1, scale = 1,dpi = 300)
+ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 ```
 
 
