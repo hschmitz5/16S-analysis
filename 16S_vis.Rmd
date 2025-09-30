@@ -66,6 +66,11 @@ ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
 
 # relative abundance
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))
+
+
+# Show how much data was filtered out
+print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
+print(paste("Number of ASVs after filtering:", ntaxa(ps_filt))) 
 ```
 # Format as data frames
 
@@ -159,7 +164,7 @@ ggsave("./results/genus_ca_ac.png")
 # Multiple subplots
 ```{r plot_scatter_multiple}
 gs.pac %>%
-  ggplot(aes(x = size.mm, y = sum_ab, fill = duplicate.id)) + 
+  ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
     shape = 21,
@@ -167,12 +172,12 @@ gs.pac %>%
     size = 3,
     stroke = 1
   ) +
-  scale_fill_manual(
-    values = c("A" = "#4E2A84", "B" = NA, "C"="gray"),
-    na.value = "white"
-  ) +
+  #scale_fill_manual(
+    #values = c("A" = "#4E2A84", "B" = NA, "C"="gray"),
+    #na.value = "white"
+  #) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1)) +
-  labs(fill = "Replicate ID") +
+  #labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance")
 
@@ -194,17 +199,17 @@ p <- plot_richness(ps_filt,
 # Add custom geom_point with manual fill scale
 p + 
   geom_point(
-    aes(fill = duplicate.id),
+    #aes(fill = duplicate.id),
     shape = 21,
     color = "black",
     size = 3,
     stroke = 1
   ) +
-  scale_fill_manual(
-    values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),
-    na.value = "white"
-  ) +
-  labs(fill = "Replicate ID") +
+  #scale_fill_manual(
+    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),
+    #na.value = "white"
+  #) +
+  #labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
 
@@ -221,20 +226,22 @@ cols <- c('red','orange','green', 'blue', 'violet', 'black')
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
                      scale_color_manual(values=cols) 
+# seperate the plots so they aren't overlayed
+p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
   
-print(p1)
+#print(p1)
 
 ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
-
-# ntaxa(ps_filt) # how many ASVs are there?
 ```
 Try pcoa instead
 ```{r}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
                      scale_color_manual(values=cols)
+# seperate the plots so they aren't overlayed
+p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
 
-print(p1)
+#print(p1)
 ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 ```
 
