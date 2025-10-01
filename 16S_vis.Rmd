@@ -141,15 +141,6 @@ genus_summary <- table_rel_long %>% # perform some functions on table_rel
   group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus (ignore species)
   summarise(sum_ab = sum(rel_ab)) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
 
-# Ca_Accumulibacter
-gs.ca_ac <- genus_summary %>% # how to pipe data (dplyr filter)
-  filter(Genus == "Ca_Accumulibacter")
-show(gs.ca_ac)
-
-# Ca_Phosphoribacter, Ca_Accumulibacter,Ca_Competibacter
-gs.pac <- genus_summary %>%
-  filter(Genus %in% c("Ca_Phosphoribacter", "Ca_Accumulibacter","Ca_Competibacter")) 
-show(gs.pac)
 ```
 # Scatter plots look better with duplicates
 
@@ -158,19 +149,23 @@ I considered making a boxplot, but I only have two data points. It is recommende
 Ca. Accumilibacter is a POA.
 
 # Single scatter plot
-```{r plot_scatter_single}
+```{r plot_scatter_loop}
 for (i in 1:10) {
   gs <- genus_summary %>% # how to pipe data (dplyr filter)
     filter(Genus == genus_names[i])
   
   gs %>%  
-    ggplot(aes(x = size.mm, y = sum_ab)) + 
+    ggplot(aes(x = size.mm, y = sum_ab)) + #, fill = duplicate.id)) +
     geom_point(
       shape = 21,
       color = "black",
       size = 3,
       stroke = 1
     ) +
+    #scale_fill_manual(
+    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),   # A = filled, B = empty
+    #na.value = "white"                       # fallback fill color for NA
+    #) +
     labs(title = genus_names[i]) + #, fill = "Replicate ID") +
     xlab("Sieve Range [mm]") +
     ylab("Sum of Relative Abundance")
@@ -181,30 +176,15 @@ for (i in 1:10) {
 ```
 
 
-# Single scatter plot
-```{r plot_scatter_single}
-gs.ca_ac %>%  
-  ggplot(aes(x = size.mm, y = sum_ab)) + #, fill = duplicate.id)) +
-  geom_point(
-    shape = 21,
-    color = "black",
-    size = 3,
-    stroke = 1
-  ) +
-  #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),   # A = filled, B = empty
-    #na.value = "white"                       # fallback fill color for NA
-  #) +
-  labs(title = "Ca_Accumulibacter") + #, fill = "Replicate ID") +
-  xlab("Sieve Range [mm]") +
-  ylab("Sum of Relative Abundance")
-
-ggsave("./results/genus_ca_ac.png")
-```
-
 # Multiple subplots
 ```{r plot_scatter_multiple}
-gs.pac %>%
+# Ca_Contendobacter, Ca_Competibacter, Ca_Phosphoribacter
+gs.group_plot <- genus_summary %>%
+  filter(Genus %in% c(genus_names[1], genus_names[2], genus_names[3])) 
+show(gs.group_plot)
+
+### plot
+gs.group_plot %>%
   ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
@@ -222,7 +202,7 @@ gs.pac %>%
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance")
 
-ggsave("./results/genus_pac.png")
+ggsave("./results/genus_group.png")
 ```
 
 We can save that table as a new R data frame, or we can pipe that data directly into a ggplot2 command. Notice that the timepoint column is the "character" class rather than a numeric class like a "double" Let's add a modification so the timepoint column is correctly classified.
