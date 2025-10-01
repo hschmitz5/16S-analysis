@@ -140,9 +140,11 @@ show(gs.pac)
 
 I considered making a boxplot, but I only have two data points. It is recommended to make box plots with more than 5 data points.
 
+Ca. Accumilibacter is a POA.
+
 # Single scatter plot
 ```{r plot_scatter_single}
-gs.ca_ac %>%
+gs.ca_ac %>%  
   ggplot(aes(x = size.mm, y = sum_ab)) + #, fill = duplicate.id)) +
   geom_point(
     shape = 21,
@@ -225,11 +227,12 @@ cols <- c('red','orange','green', 'blue', 'violet', 'black')
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
-                     scale_color_manual(values=cols) 
+                     scale_color_manual(values=cols)  +
+                     labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
-p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
   
-#print(p1)
+print(p1)
 
 ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 ```
@@ -237,11 +240,12 @@ Try pcoa instead
 ```{r}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
-                     scale_color_manual(values=cols)
+                     scale_color_manual(values=cols) + 
+                     labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
-p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
 
-#print(p1)
+print(p1)
 ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 ```
 
@@ -257,6 +261,16 @@ R statistic ranges from -1 to 1. 0 is random. What is -1?
 ```{r}
 ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm)
 summary(ps_filt.ano)
-plot(ps_filt.ano)
+
+# Open a PNG device
+png("./results/anosim_plot.png", width = 800, height = 600)
+
+# Plot the ANOSIM result
+plot(ps_filt.ano,
+     xlab = "Size [mm]",
+     ylab = "Dissimilarity Ranks")
+
+# Close the device to save the file
+dev.off()
 ```
 
