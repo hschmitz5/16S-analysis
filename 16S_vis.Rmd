@@ -64,13 +64,19 @@ rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
   rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
 
+# Remove taxa not seen more than 3 times in at least 20% of the samples. 
+# This protects against an OTU with small mean & trivially large C.V.
+ps_filt2 = filter_taxa(ps_filt, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+
 # relative abundance
-ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
+ps_rel <- phyloseq::transform_sample_counts(ps_filt2, function(x) x*100/sum(x))  # convert to %
+#ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
-print(paste("Number of ASVs after filtering:", ntaxa(ps_filt))) 
+print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
+print(paste("Number of ASVs after filtering:", ntaxa(ps_filt2)))
 ```
 ```{r genus_abundance}
 
@@ -138,9 +144,18 @@ Adding duplicate.id to "group_by" seperates the data
 ```{r sort_genus}
 # make a data frame of first two lines
 genus_summary <- table_rel_long %>% # perform some functions on table_rel
-  group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus (ignore species)
-  summarise(sum_ab = sum(rel_ab)) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
+  group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
+  # sum up the relative abundance of each unique Genus at each unique combination of date and location 
+  summarise(sum_ab = sum(rel_ab)) 
 
+
+genus_summary2 <- table_rel_long %>% # perform some functions on table_rel
+  group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
+  summarise(rel_ab) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
+
+# Test
+sum(genus_summary[,4]/nsamples(ps))
+sum(genus_summary2[,4]/nsamples(ps))
 ```
 # Scatter plots look better with duplicates
 
@@ -168,7 +183,7 @@ for (i in 1:10) {
     #) +
     labs(title = genus_names[i]) + #, fill = "Replicate ID") +
     xlab("Sieve Range [mm]") +
-    ylab("Sum of Relative Abundance")
+    ylab("Sum of Relative Abundance [%]")
   
   fname = paste("./results/genus_",genus_names[i], ".png", sep = "")
   ggsave(fname)
@@ -179,13 +194,14 @@ for (i in 1:10) {
 # Multiple subplots
 ```{r plot_scatter_multiple}
 # Ca_Contendobacter, Ca_Competibacter, Ca_Phosphoribacter
-gs.group_plot <- genus_summary %>%
+gs.group_plot <- genus_summary2 %>%
   filter(Genus %in% c(genus_names[1], genus_names[2], genus_names[3])) 
 show(gs.group_plot)
 
 ### plot
 gs.group_plot %>%
-  ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
+  ggplot(aes(x = size.mm, y = rel_ab)) +  #, fill = duplicate.id)) + 
+  #ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
     shape = 21,
@@ -200,7 +216,7 @@ gs.group_plot %>%
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1)) +
   #labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
-  ylab("Sum of Relative Abundance")
+  ylab("Sum of Relative Abundance [%]")
 
 ggsave("./results/genus_group.png")
 ```
