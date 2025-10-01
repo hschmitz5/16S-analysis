@@ -59,19 +59,34 @@ ps_filt0 <- phyloseq::subset_taxa(ps, ! Family %in% c("Mitochondria", "Chloropla
 ps_filt0 <- phyloseq::subset_taxa(ps, Kingdom != "Unassigned")
 
 # define minimum depth to rarefy
-rarefy_level <- min(sample_sums(ps_filt0))
+rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
 ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
   rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
 
 # relative abundance
-ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))
+ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt))) 
 ```
+```{r genus_abundance}
+
+# Merges ASVs that have the same taxonomy rank (Genus)
+ps_rel_genus = tax_glom(ps_rel, taxrank = "Genus")
+
+# Calculate taxa sum of the selected samples
+# rowSums adds relative abundance across all samples (divide by number of samples so % makes sense)
+top10 = head(sort(rowSums(otu_table(ps_rel_genus)/nsamples(ps)), decreasing = TRUE), 10) 
+
+# Combine count and taxonomyTable
+top10 = cbind(as.data.frame(tax_table(ps_rel_genus)[names(top10),]), "Relative abundance [%]" = top10)
+
+genus_names = top10[,6]
+```
+
 # Format as data frames
 
 This chunk saves the taxonomy, metadata, and count tables as data frames. In these tables, each row is a unique ASV. 
@@ -104,7 +119,6 @@ head(table_rel)
 This chunk manipulates the relative abundance table and combines it with the taxonomy table. We used the pivot_longer function to make this into a "long" dataframe, which is the desired format for using ggplot2. Read a bit more about long format here: http://eriqande.github.io/rep-res-web/lectures/ggplot_2_reshape_facets_stats.html. The long format will seem very chaotic, but I promise it will be extremely useful for plotting and data analysis tasks going forward.
 
 ```{r combine_mats}
-
 table_rel_long <- table_rel %>% 
   pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
   left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
@@ -112,6 +126,7 @@ table_rel_long <- table_rel %>%
 
 head(table_rel_long)
 ```
+
 
 # Subsetting and plotting
 We can use a variety of filtering functions from dplyr to manipulate data for more concise plots. For example, we could select specific bacteria to look for, or group all members of the same family or genus together. Let's do a simple example - we will plot the abundance of the genus Zoogleoa from each sampling location. First, let's see what the data looks like when we filter it to our specifications. 
@@ -141,6 +156,30 @@ show(gs.pac)
 I considered making a boxplot, but I only have two data points. It is recommended to make box plots with more than 5 data points.
 
 Ca. Accumilibacter is a POA.
+
+# Single scatter plot
+```{r plot_scatter_single}
+for (i in 1:10) {
+  gs <- genus_summary %>% # how to pipe data (dplyr filter)
+    filter(Genus == genus_names[i])
+  
+  gs %>%  
+    ggplot(aes(x = size.mm, y = sum_ab)) + 
+    geom_point(
+      shape = 21,
+      color = "black",
+      size = 3,
+      stroke = 1
+    ) +
+    labs(title = genus_names[i]) + #, fill = "Replicate ID") +
+    xlab("Sieve Range [mm]") +
+    ylab("Sum of Relative Abundance")
+  
+  fname = paste("./results/genus_",genus_names[i], ".png", sep = "")
+  ggsave(fname)
+}
+```
+
 
 # Single scatter plot
 ```{r plot_scatter_single}
@@ -222,7 +261,7 @@ ggsave("./results/diversity.png")
 tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 
 Try it here ordination B diversity
-```{r ordination}
+```{r ordination-nmds}
 cols <- c('red','orange','green', 'blue', 'violet', 'black')
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
@@ -237,7 +276,7 @@ print(p1)
 ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 ```
 Try pcoa instead
-```{r}
+```{r ordination-pcoa}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
                      scale_color_manual(values=cols) + 
@@ -253,12 +292,12 @@ ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 # Distance
 What is the difference between weighted and unweighted unifrac
 
-```{r}
+```{r calculate_distance}
 ps_filt.dist <- distance(ps_filt, method = "wunifrac" ) # weighted
 show(ps_filt.dist)
 ```
 R statistic ranges from -1 to 1. 0 is random. What is -1?
-```{r}
+```{r plot_anosim}
 ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm)
 summary(ps_filt.ano)
 
