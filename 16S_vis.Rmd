@@ -61,22 +61,21 @@ ps_filt0 <- phyloseq::subset_taxa(ps, Kingdom != "Unassigned")
 # define minimum depth to rarefy
 rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
-ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
+ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
   rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
 
 # Remove taxa not seen more than 3 times in at least 20% of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
-ps_filt2 = filter_taxa(ps_filt, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
 
 # relative abundance
-ps_rel <- phyloseq::transform_sample_counts(ps_filt2, function(x) x*100/sum(x))  # convert to %
-#ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
+ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
+print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
-print(paste("Number of ASVs after filtering:", ntaxa(ps_filt2)))
 ```
 ```{r genus_abundance}
 
@@ -225,23 +224,15 @@ We can save that table as a new R data frame, or we can pipe that data directly 
 
 
 # Alpha Diversity
-
 ```{r diversity_plot}
 
 # Base plot (no fill here)
 p <- plot_richness(ps_filt, 
                    x = "size.mm", 
-                   measures = c("Chao1")) #, "Shannon"))
+                   measures = c("Shannon"))
 
 # Add custom geom_point with manual fill scale
 p + 
-  geom_point(
-    #aes(fill = duplicate.id),
-    shape = 21,
-    color = "black",
-    size = 3,
-    stroke = 1
-  ) +
   #scale_fill_manual(
     #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),
     #na.value = "white"
@@ -265,7 +256,7 @@ p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NM
                      scale_color_manual(values=cols)  +
                      labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
-p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+#p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
   
 print(p1)
 
@@ -278,7 +269,7 @@ p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PC
                      scale_color_manual(values=cols) + 
                      labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
-p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+#p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
 
 print(p1)
 ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
