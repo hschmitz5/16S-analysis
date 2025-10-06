@@ -24,6 +24,7 @@ library(qiime2R)
 library(phyloseq)
 library(tidyverse)
 library(vegan)
+library(indicspecies)  # for indicator species analysis
 
 # optional
 library(MetBrewer) # fun color palettes
@@ -44,7 +45,8 @@ ps <- qiime2R::qza_to_phyloseq(
 )
 
 # factor the size metadata
-ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"))
+size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
+ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
 
 ```
 
@@ -107,7 +109,7 @@ head(taxonomy)
 metadata <- as.data.frame(as.matrix(ps_rel@sam_data)) %>% 
   rownames_to_column(var = "sample")
 # factor the size metadata
-metadata$size.mm <- factor(metadata$size.mm, levels = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"))
+metadata$size.mm <- factor(metadata$size.mm, levels = size_factored)
 
 head(metadata)
 
@@ -285,7 +287,7 @@ show(ps_filt.dist)
 ```
 R statistic ranges from -1 to 1. 0 is random. What is -1?
 ```{r plot_anosim}
-ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm)
+ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm, permutations = 9999)
 summary(ps_filt.ano)
 
 # Open a PNG device
@@ -299,4 +301,14 @@ plot(ps_filt.ano,
 # Close the device to save the file
 dev.off()
 ```
+```{r plot_species}
+seq_names = table_rel[,1]    # define the sequence names
+table_rel2 = table_rel[,-1]  # removes the sequence names from the matrix
+rownames(table_rel2) <- seq_names # label the rows with the sequences
+table_rel2 = t(table_rel2)   # transpose
 
+group_names = metadata$size.mm
+
+inv = multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
+summary(inv)
+```
