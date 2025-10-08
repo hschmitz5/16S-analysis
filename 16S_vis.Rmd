@@ -25,6 +25,7 @@ library(phyloseq)
 library(tidyverse)
 library(vegan)
 library(indicspecies)  # for indicator species analysis
+library(writexl)
 
 # optional
 library(MetBrewer) # fun color palettes
@@ -73,11 +74,15 @@ ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
 # relative abundance
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
+# filters out taxa that are less than 0.25% abundant for at least one sample
+ps_rel_s = filter_taxa(ps_rel, function(x) max(x) > 0.25, TRUE)  # for visualizing abundance only
+
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
 print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
+print(paste("Number of ASVs in small mat:", ntaxa(ps_rel_s)))
 ```
 ```{r genus_abundance}
 
@@ -118,20 +123,52 @@ table_rel <- as.data.frame(ps_rel@otu_table) %>%
 
 head(table_rel)
 
+#### adds genus to table_rel
+tax_short <- taxonomy[,c(1,7,8)]  # keep seq, Genus, Species
+tax_short2 <- tax_short[order(tax_short$Genus), ]  # sort alphabetically
 
-```
+table_rel_plus <-  tax_short2 %>%
+  left_join(table_rel, join_by(seq))  # join taxonomy by the sequence ID
+
+head(table_rel_plus)
+
+write_xlsx(table_rel_plus, "./results/table_rel_plus.xlsx")
+
+
+### Filters out more taxa
+
+table_rel_s <- as.data.frame(ps_rel_s@otu_table) %>% 
+  rownames_to_column(var = "seq")
+
+#### Merges ASVs that have the same taxonomy rank (Genus)
+
+#table_rel2 <- as.data.frame(ps_rel_genus@otu_table) %>% 
+  #rownames_to_column(var = "seq")
+
+
+#write_xlsx(table_rel, "./results/table_rel.xlsx")
+
+``` 
 
 # Data Manipulation
 
 This chunk manipulates the relative abundance table and combines it with the taxonomy table. We used the pivot_longer function to make this into a "long" dataframe, which is the desired format for using ggplot2. Read a bit more about long format here: http://eriqande.github.io/rep-res-web/lectures/ggplot_2_reshape_facets_stats.html. The long format will seem very chaotic, but I promise it will be extremely useful for plotting and data analysis tasks going forward.
 
 ```{r combine_mats}
-table_rel_long <- table_rel %>% 
+table_rel_s_long <- table_rel_s %>% 
   pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
   left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
   left_join(metadata, join_by(sample)) # join metadata by the sample ID
 
-head(table_rel_long)
+head(table_rel_s_long)
+
+
+#table_rel_long <- table_rel %>% 
+  #pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
+  #left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
+  #left_join(metadata, join_by(sample)) # join metadata by the sample ID
+
+#head(table_rel_long)
 ```
 
 
@@ -150,13 +187,16 @@ genus_summary <- table_rel_long %>% # perform some functions on table_rel
   summarise(sum_ab = sum(rel_ab)) 
 
 
-genus_summary2 <- table_rel_long %>% # perform some functions on table_rel
-  group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
+genus_summary2 <- table_rel_s_long %>% # perform some functions on table_rel
+  group_by(Genus, seq, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
   summarise(rel_ab) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
 
 # Test
 sum(genus_summary[,4]/nsamples(ps))
-sum(genus_summary2[,4]/nsamples(ps))
+sum(genus_summary2[,5]/nsamples(ps))
+
+
+
 ```
 # Scatter plots look better with duplicates
 
@@ -166,12 +206,14 @@ Ca. Accumilibacter is a POA.
 
 # Single scatter plot
 ```{r plot_scatter_loop}
-for (i in 1:10) {
-  gs <- genus_summary %>% # how to pipe data (dplyr filter)
-    filter(Genus == genus_names[i])
+#for (i in 1:10) {
+i = 2
+  gs <- genus_summary2 %>% # how to pipe data (dplyr filter)
+    filter(Genus == genus_names[i]) # i
   
   gs %>%  
-    ggplot(aes(x = size.mm, y = sum_ab)) + #, fill = duplicate.id)) +
+    ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) +
+    #ggplot(aes(x = size.mm, y = sum_ab, fill = seq)) +
     geom_point(
       shape = 21,
       color = "black",
@@ -184,11 +226,11 @@ for (i in 1:10) {
     #) +
     labs(title = genus_names[i]) + #, fill = "Replicate ID") +
     xlab("Sieve Range [mm]") +
-    ylab("Sum of Relative Abundance [%]")
+    ylab("Relative Abundance [%]")  # Sum of
   
-  fname = paste("./results/genus_",genus_names[i], ".png", sep = "")
+  fname = paste("./results/genus_",genus_names[i], ".png", sep = "") # i
   ggsave(fname)
-}
+#}
 ```
 
 
@@ -201,7 +243,7 @@ show(gs.group_plot)
 
 ### plot
 gs.group_plot %>%
-  ggplot(aes(x = size.mm, y = rel_ab)) +  #, fill = duplicate.id)) + 
+  ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) + 
   #ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
