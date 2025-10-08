@@ -96,7 +96,6 @@ print(paste("Number of ASVs in small mat:", ntaxa(ps_rel_filt)))
 top15 = head(sort(rowSums(otu_table(ps_rel)/nsamples(ps_rel)), decreasing = TRUE), 15) 
 #top10 = head(sort(rowSums(otu_table(ps_rel_genus)/nsamples(ps)), decreasing = TRUE), 10) 
 
-
 # Combine count and taxonomyTable
 top15 = cbind(as.data.frame(tax_table(ps_rel)[names(top15),]), "Relative abundance [%]" = top15)
 #top10 = cbind(as.data.frame(tax_table(ps_rel_genus)[names(top10),]), "Relative abundance [%]" = top10)
@@ -199,11 +198,35 @@ sum(genus_summary[,4])/nsamples(ps_rel)
 sum(genus_summary_filt[,5])/nsamples(ps_rel)
 
 ```
+```{r rank_abundance_curve}
+
+i <- 2  # 1 is seq
+order_idx <- order(table_rel[,i], na.last = TRUE, decreasing = TRUE)  # indices
+table_rel_ordered <- table_rel[order_idx, i]
+plot(1:2500, log10(table_rel_ordered))  #, ylim = c(0, 1)
+
+#order_idx <- order(table_rel[,i], na.last = TRUE, decreasing = TRUE)  # indices
+#table_rel_ordered <- table_rel[order_idx, i]
+#plot(1:2500, log10(table_rel_ordered))  #, ylim = c(0, 1)
+
+test <- filter(table_rel_long, sample == "10A")
+order_idx <- order(test$rel_ab, na.last = TRUE, decreasing = TRUE)  # indices
+test2 <- test[order_idx,] 
+  
+head(test2,20) %>%
+  ggplot(aes(x = Genus, y = rel_ab)) +
+  geom_point(
+      shape = 21,
+      color = "black",
+      size = 3,
+      stroke = 1
+    ) 
+# sample_names(ps)
+```
+
 # Scatter plots look better with duplicates
 
-I considered making a boxplot, but I only have two data points. It is recommended to make box plots with more than 5 data points.
-
-Ca. Accumilibacter is a POA.
+Summarizes genus abundance
 
 # Single scatter plot
 ```{r plot_scatter_loop}
