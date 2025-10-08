@@ -213,14 +213,15 @@ test <- filter(table_rel_long, sample == "10A")
 order_idx <- order(test$rel_ab, na.last = TRUE, decreasing = TRUE)  # indices
 test2 <- test[order_idx,] 
   
-head(test2,20) %>%
-  ggplot(aes(x = Genus, y = rel_ab)) +
-  geom_point(
-      shape = 21,
-      color = "black",
-      size = 3,
-      stroke = 1
+p <- head(test2,20) %>%
+     ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab), y = rel_ab)) +  # I think it's listing x in alphabetical order
+    geom_point(
+        shape = 21,
+        color = "black",
+        size = 3,
+        stroke = 1
     ) 
+p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 # sample_names(ps)
 ```
 
