@@ -66,6 +66,7 @@ rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
 ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
   rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+ 
 
 # Remove taxa not seen more than 3 times in at least 20% of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
@@ -74,29 +75,33 @@ ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
 # relative abundance
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
+
 # filters out taxa that are less than 0.25% abundant for at least one sample
-ps_rel_s = filter_taxa(ps_rel, function(x) max(x) > 0.25, TRUE)  # for visualizing abundance only
+ps_rel_filt = filter_taxa(ps_rel, function(x) max(x) > 0.25, TRUE)  # for visualizing abundance only
 
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
 print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
-print(paste("Number of ASVs in small mat:", ntaxa(ps_rel_s)))
+print(paste("Number of ASVs in small mat:", ntaxa(ps_rel_filt)))
 ```
 ```{r genus_abundance}
 
 # Merges ASVs that have the same taxonomy rank (Genus)
-ps_rel_genus = tax_glom(ps_rel, taxrank = "Genus")
+#ps_rel_genus = tax_glom(ps_rel, taxrank = "Genus")
 
 # Calculate taxa sum of the selected samples
 # rowSums adds relative abundance across all samples (divide by number of samples so % makes sense)
-top10 = head(sort(rowSums(otu_table(ps_rel_genus)/nsamples(ps)), decreasing = TRUE), 10) 
+top15 = head(sort(rowSums(otu_table(ps_rel)/nsamples(ps_rel)), decreasing = TRUE), 15) 
+#top10 = head(sort(rowSums(otu_table(ps_rel_genus)/nsamples(ps)), decreasing = TRUE), 10) 
+
 
 # Combine count and taxonomyTable
-top10 = cbind(as.data.frame(tax_table(ps_rel_genus)[names(top10),]), "Relative abundance [%]" = top10)
+top15 = cbind(as.data.frame(tax_table(ps_rel)[names(top15),]), "Relative abundance [%]" = top15)
+#top10 = cbind(as.data.frame(tax_table(ps_rel_genus)[names(top10),]), "Relative abundance [%]" = top10)
 
-genus_names = top10[,6]
+genus_names = top15[,6]
 ```
 
 # Format as data frames
@@ -123,52 +128,50 @@ table_rel <- as.data.frame(ps_rel@otu_table) %>%
 
 head(table_rel)
 
-#### adds genus to table_rel
-tax_short <- taxonomy[,c(1,7,8)]  # keep seq, Genus, Species
-tax_short2 <- tax_short[order(tax_short$Genus), ]  # sort alphabetically
-
-table_rel_plus <-  tax_short2 %>%
-  left_join(table_rel, join_by(seq))  # join taxonomy by the sequence ID
-
-head(table_rel_plus)
-
-write_xlsx(table_rel_plus, "./results/table_rel_plus.xlsx")
-
 
 ### Filters out more taxa
-
-table_rel_s <- as.data.frame(ps_rel_s@otu_table) %>% 
+table_rel_filt <- as.data.frame(ps_rel_filt@otu_table) %>% 
   rownames_to_column(var = "seq")
+``` 
+# Data Manipulation: Combine into wide dataframe
 
-#### Merges ASVs that have the same taxonomy rank (Genus)
+This combines taxonomy and relative abundance in a wide dataframe. Then, it exports it to an excel spreadsheet. 
+This format is easier to view the data.
 
-#table_rel2 <- as.data.frame(ps_rel_genus@otu_table) %>% 
-  #rownames_to_column(var = "seq")
+```{r combine_wide}
 
+#### adds genus to table_rel
+tax_short0 <- taxonomy[,c(1,7,8)]  # keep seq, Genus, Species
+tax_short  <- tax_short0[order(tax_short0$Genus), ]  # sort alphabetically
 
-#write_xlsx(table_rel, "./results/table_rel.xlsx")
+table_rel_wide <-  tax_short %>%
+  left_join(table_rel, join_by(seq))  # join taxonomy by the sequence ID
+
+head(table_rel_wide)
+
+write_xlsx(table_rel_wide, "./results/table_rel_wide.xlsx")
 
 ``` 
-
-# Data Manipulation
+# Data Manipulation: Combine into long dataframe
 
 This chunk manipulates the relative abundance table and combines it with the taxonomy table. We used the pivot_longer function to make this into a "long" dataframe, which is the desired format for using ggplot2. Read a bit more about long format here: http://eriqande.github.io/rep-res-web/lectures/ggplot_2_reshape_facets_stats.html. The long format will seem very chaotic, but I promise it will be extremely useful for plotting and data analysis tasks going forward.
 
-```{r combine_mats}
-table_rel_s_long <- table_rel_s %>% 
+```{r combine_long}
+
+table_rel_long <- table_rel %>% 
   pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
   left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
   left_join(metadata, join_by(sample)) # join metadata by the sample ID
 
-head(table_rel_s_long)
+head(table_rel_long)
 
+# Filters out more
+table_rel_long_filt <- table_rel_filt %>% 
+  pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
+  left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
+  left_join(metadata, join_by(sample)) # join metadata by the sample ID
 
-#table_rel_long <- table_rel %>% 
-  #pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
-  #left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
-  #left_join(metadata, join_by(sample)) # join metadata by the sample ID
-
-#head(table_rel_long)
+head(table_rel_long_filt)
 ```
 
 
@@ -187,15 +190,13 @@ genus_summary <- table_rel_long %>% # perform some functions on table_rel
   summarise(sum_ab = sum(rel_ab)) 
 
 
-genus_summary2 <- table_rel_s_long %>% # perform some functions on table_rel
+genus_summary_filt <- table_rel_long_filt %>% # perform some functions on table_rel
   group_by(Genus, seq, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
   summarise(rel_ab) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
 
 # Test
-sum(genus_summary[,4]/nsamples(ps))
-sum(genus_summary2[,5]/nsamples(ps))
-
-
+sum(genus_summary[,4])/nsamples(ps_rel)
+sum(genus_summary_filt[,5])/nsamples(ps_rel)
 
 ```
 # Scatter plots look better with duplicates
@@ -207,8 +208,8 @@ Ca. Accumilibacter is a POA.
 # Single scatter plot
 ```{r plot_scatter_loop}
 #for (i in 1:10) {
-i = 2
-  gs <- genus_summary2 %>% # how to pipe data (dplyr filter)
+i = 5
+  gs <- genus_summary_filt %>% # how to pipe data (dplyr filter)
     filter(Genus == genus_names[i]) # i
   
   gs %>%  
