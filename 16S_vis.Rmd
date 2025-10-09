@@ -198,31 +198,93 @@ sum(genus_summary[,4])/nsamples(ps_rel)
 sum(genus_summary_filt[,5])/nsamples(ps_rel)
 
 ```
+# Rank Abundance Curve
+This shows the relative abundance, averaged for all samples, and their corresponding genera.
+The scatter plot shows the different ASVs that make up each genus.
+Most genera are only one ASV, and some are composed of several. 
+NA are samples for which the genus was not identified.
+This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
+
 ```{r rank_abundance_curve}
-
-i <- 2  # 1 is seq
-order_idx <- order(table_rel[,i], na.last = TRUE, decreasing = TRUE)  # indices
-table_rel_ordered <- table_rel[order_idx, i]
-plot(1:2500, log10(table_rel_ordered))  #, ylim = c(0, 1)
-
-#order_idx <- order(table_rel[,i], na.last = TRUE, decreasing = TRUE)  # indices
-#table_rel_ordered <- table_rel[order_idx, i]
-#plot(1:2500, log10(table_rel_ordered))  #, ylim = c(0, 1)
-
-test <- filter(table_rel_long, sample == "10A")
-order_idx <- order(test$rel_ab, na.last = TRUE, decreasing = TRUE)  # indices
-test2 <- test[order_idx,] 
+n_asv = 25  # number of ASVs to include in the plot
   
-p <- head(test2,20) %>%
-     ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab), y = rel_ab)) +  # I think it's listing x in alphabetical order
-    geom_point(
-        shape = 21,
-        color = "black",
-        size = 3,
-        stroke = 1
-    ) 
-p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-# sample_names(ps)
+# I want to average across samples
+rel_ab_avg <- rowMeans(table_rel_wide[,4:21])
+table_rel_avg <- cbind(table_rel_wide[,1:3],rel_ab_avg)
+order_idx <- order(table_rel_avg$rel_ab_avg, na.last = TRUE, decreasing = TRUE)  # indices
+table_rel_avg_sorted = table_rel_avg[order_idx,]    
+
+  p <- head(table_rel_avg_sorted,n_asv) %>%
+       ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab_avg), y = rel_ab_avg)) + 
+       geom_bar(stat = "identity") +
+       geom_point(
+          shape = 21,
+          color = "black",
+          size = 3,
+          stroke = 1
+      ) +
+        xlab("Genus") +
+        ylab("Relative Abundance [%]")  #
+      p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  fname = paste("./results/genus/abund_avg.png") 
+    ggsave(fname)
+
+```
+This groups per sample
+```{r rank_abundance_curve2}
+n_asv = 25  # number of ASVs to include in the plot
+
+
+
+# I want to average across samples
+rel_ab_avg <- rowMeans(table_rel_wide[,4:21])
+table_rel_avg <- cbind(table_rel_wide[,1:3],rel_ab_avg)
+order_idx <- order(table_rel_avg$rel_ab_avg, na.last = TRUE, decreasing = TRUE)  # indices
+table_rel_avg_sorted = table_rel_avg[order_idx,]    
+
+  p <- head(table_rel_avg_sorted,n_asv) %>%
+       ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab_avg), y = rel_ab_avg)) + 
+       geom_bar(stat = "identity") +
+       geom_point(
+          shape = 21,
+          color = "black",
+          size = 3,
+          stroke = 1
+      ) +
+        xlab("Genus") +
+        ylab("relative abundance [%]")  #
+      p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  fname = paste("./results/genus/abund_avg.png") 
+    ggsave(fname)
+
+```
+This one summarizes each sample individually
+```{r rank_abundance_curve_single}
+
+sam_names <- sample_names(ps)
+for (i in 1:length(sam_names)) {
+  test <- filter(table_rel_long, table_rel_long$sample == sam_names[i])   ## one at a time -- add for loop
+  order_idx <- order(test$rel_ab, na.last = TRUE, decreasing = TRUE)  # indices
+  test2 <- test[order_idx,] 
+    
+  p <- head(test2,20) %>%
+       ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab), y = log10(rel_ab))) +  # I think it's listing x in alphabetical order
+       geom_point(
+          shape = 21,
+          color = "black",
+          size = 3,
+          stroke = 1
+      ) +
+      labs(title = sam_names[i]) + 
+        xlab("Genus") +
+        ylab("log of relative abundance [%]")  #
+      p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  fname = paste("./results/genus/abund_",sam_names[i], ".png", sep = "") # i
+    ggsave(fname)
+}
 ```
 
 # Scatter plots look better with duplicates
@@ -253,7 +315,7 @@ i = 5
     xlab("Sieve Range [mm]") +
     ylab("Relative Abundance [%]")  # Sum of
   
-  fname = paste("./results/genus_",genus_names[i], ".png", sep = "") # i
+  fname = paste("./results/genus/genus_",genus_names[i], ".png", sep = "") # i
   ggsave(fname)
 #}
 ```
