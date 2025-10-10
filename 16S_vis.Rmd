@@ -52,7 +52,8 @@ ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
 ```
 
 # Basic filtering and parsing
-I will do a bit of manipulation using phyloseq functions, then we will use the suite of tidyverse packages to do more data manipulation. Let's start with getting relative abundance data.
+I will do a bit of manipulation using phyloseq functions, then we will use the suite of tidyverse packages to do more data manipulation. 
+Let's start with getting relative abundance data.
 
 ```{r apply_filt}
 # remove Mitochondria and Chloroplasts (removes Eukaryotes)
@@ -76,32 +77,10 @@ ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
 
-# filters out taxa that are less than 0.25% abundant for at least one sample
-ps_rel_filt = filter_taxa(ps_rel, function(x) max(x) > 0.25, TRUE)  # for visualizing abundance only
-
-
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
 print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
-print(paste("Number of ASVs in small mat:", ntaxa(ps_rel_filt)))
-```
-```{r genus_abundance}
-
-# Merges ASVs that have the same taxonomy rank (Genus)
-#ps_rel_genus = tax_glom(ps_rel, taxrank = "Genus")
-
-# Calculate taxa sum of the selected samples
-# rowSums adds relative abundance across all samples (divide by number of samples so % makes sense)
-top15 = head(sort(rowSums(otu_table(ps_rel)/nsamples(ps_rel)), decreasing = TRUE), 15) 
-#top10 = head(sort(rowSums(otu_table(ps_rel_genus)/nsamples(ps)), decreasing = TRUE), 10) 
-
-# Combine count and taxonomyTable
-top15 = cbind(as.data.frame(tax_table(ps_rel)[names(top15),]), "Relative abundance [%]" = top15)
-#top10 = cbind(as.data.frame(tax_table(ps_rel_genus)[names(top10),]), "Relative abundance [%]" = top10)
-
-genus_names = top15[,6]
-
 ```
 
 # Format as data frames
@@ -128,10 +107,6 @@ table_rel <- as.data.frame(ps_rel@otu_table) %>%
 
 head(table_rel)
 
-
-### Filters out more taxa
-table_rel_filt <- as.data.frame(ps_rel_filt@otu_table) %>% 
-  rownames_to_column(var = "seq")
 ``` 
 # Data Manipulation: Combine into wide dataframe
 
@@ -167,180 +142,141 @@ table_rel_long <- table_rel %>%
 
 head(table_rel_long)
 
-# Filters out more
-table_rel_long_filt <- table_rel_filt %>% 
-  pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
-  left_join(taxonomy, join_by(seq)) %>% # join taxonomy by the sequence ID
-  left_join(metadata, join_by(sample)) # join metadata by the sample ID
-
-head(table_rel_long_filt)
 ```
 
 
 # Subsetting and plotting
-We can use a variety of filtering functions from dplyr to manipulate data for more concise plots. For example, we could select specific bacteria to look for, or group all members of the same family or genus together. Let's do a simple example - we will plot the abundance of the genus Zoogleoa from each sampling location. First, let's see what the data looks like when we filter it to our specifications. 
+We can use a variety of filtering functions from dplyr to manipulate data for more concise plots. For example, we could select specific bacteria to look for, or group all members of the same family or genus together. 
 
 Here, we define the genus we want to filter the data by.
 We also order it how we want it to be displayed on the x-axis.
 
-Adding duplicate.id to "group_by" seperates the data 
 ```{r sort_genus}
-# make a data frame of first two lines
-genus_summary <- table_rel_long %>% # perform some functions on table_rel
-  group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
-  #summarise(rel_ab) 
-# sum up the relative abundance of each unique Genus at each unique combination of date and location 
-  summarise(sum_ab = sum(rel_ab)) 
-
-# Genus + rel_ab + seq
-genus_summary2 <- table_rel_long %>%
+# Keep separate seq per genus  (collapse size)
+genus_summary_seq <- table_rel_long %>%
   group_by(Genus, Species, seq) %>%
-  summarise(avg_ab = sum(rel_ab)/nsamples(ps))
+  summarise(avg_ab = sum(rel_ab)/nsamples(ps)) # average across samples
 
-genus_summary_filt <- table_rel_long_filt %>% # perform some functions on table_rel
-  group_by(Genus, seq, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
-  summarise(rel_ab) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
-
-# Test
-sum(genus_summary[,4])/nsamples(ps_rel)
-sum(genus_summary_filt[,5])/nsamples(ps_rel)
+# Test that the average relative abundance adds up to 100%
+sum(genus_summary_seq$avg_ab)
 
 ```
-# Rank Abundance Curve
-This shows the relative abundance, averaged for all samples, and their corresponding genera.
+# Rank Abundance Curve (collapses size)
+This shows the genera that have the highest relative abundance, averaged for all samples.
 The scatter plot shows the different ASVs that make up each genus.
 Most genera are only one ASV, and some are composed of several. 
+The bar plot adds up the relative abundance of each ASV.
 NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 
 ```{r rank_abundance_curve}
-n_asv = 25  # number of ASVs to include in the plot
-  
 
-# I want to average across samples
-#rel_ab_avg <- rowMeans(table_rel_wide[,4:21])
-#table_rel_avg <- cbind(table_rel_wide[,1:3],rel_ab_avg)
-order_idx <- order(genus_summary2$avg_ab, na.last = TRUE, decreasing = TRUE)  # indices
-gs_sorted = genus_summary2[order_idx,]    
+n_asv = 25  # number of ASVs to include in the plot  
+
+#### Subset the data to include n_asv ASVs:
+# Order genus_summary_seq based on decreasing relative abundance
+order_idx <- order(genus_summary_seq$avg_ab, na.last = TRUE, decreasing = TRUE)  
+# Apply the indeces to sort the data
+gs_sorted = genus_summary_seq[order_idx,] 
+# Subset the data 
 t <- head(gs_sorted,n_asv)
 
-# Factor Genera
+### Factor Genera
 fct_Genus <- forcats::fct_infreq(t$Genus, t$avg_ab) # factor genus based on decreasing rel_ab
-fct_levels <- levels(fct_Genus)
-genus_names <- unique(t$Genus)
+fct_Genus_levels <- levels(fct_Genus)
+genus_names <- unique(t$Genus) # This is used in a later plots
 
-  p <- t %>%
-       mutate(Genus = factor(Genus, levels = fct_levels)) %>%
-       ggplot(aes(x = Genus, y = avg_ab)) + 
-       #ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab_avg), y = rel_ab_avg)) + 
-       geom_bar(stat = "identity") +
-       geom_point(
-          shape = 21,
-          color = "black",
-          size = 3,
-          stroke = 1
-      ) +
-        xlab("Genus") +
-        ylab("Relative Abundance [%]")  #
-      p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+### Factor seqs 
+fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor genus based on decreasing rel_ab
+fct_seq_levels <- levels(fct_seq)
+
+### Plot
+p <- t %>%
+  mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
+  ggplot(aes(x = Genus, y = avg_ab)) + 
+  geom_bar(stat = "identity") +
+  geom_point(
+    shape = 21,
+    color = "black",
+    size = 3,
+    stroke = 1
+  ) +
+  xlab("Genus") +
+  ylab("Relative Abundance [%]")  #
+  p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
-  fname = paste("./results/genus/abund_avg.png") 
-    ggsave(fname)
-
-    
+fname = paste("./results/genus/abund_avg.png") 
+ggsave(fname)
 
 ```
-This groups per sample
-Genus are conglomerated (not separated by ASVs)
+# Rank Abundance Curve with size
+This subsets the data to only include the seqs with the highest n_asv relative abundance.
+So, the relative abundance is not the same as the sum for all ASVs per genus.
+This is to be consistent with the data shown in the previous plot.
+
 ```{r rank_abundance_curve2}
 
-gs <- genus_summary %>% # how to pipe data (dplyr filter)
-    filter(Genus %in% genus_names) 
+# Subset
+genus_summary_size <- table_rel_long %>%
+  filter(seq %in% fct_seq_levels) %>%
+  group_by(Genus, size.mm, duplicate.id) %>%
+  summarise(sum_ab = sum(rel_ab)) 
+
+# Test that the average is 100%
+sum(genus_summary_size$sum_ab/nsamples(ps))
   
-p <-  gs %>%
-    mutate(Genus = factor(Genus, levels = fct_levels)) %>%
-    ggplot(aes(x = Genus, y = sum_ab, fill = size.mm)) + 
-    geom_bar(stat = "identity", position = "dodge") +
-      xlab("Genus") +
-      ylab("Relative Abundance [%]")  #
-    p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    fname = paste("./results/genus/abund_sample.png") 
-      ggsave(fname)
+# Plot
+p <- genus_summary_size %>%
+  mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
+  ggplot(aes(x = Genus, y = sum_ab, fill = size.mm)) +
+  geom_bar(stat = "identity", position = "dodge") +  
+  xlab("Genus") +
+  ylab("Relative Abundance [%]") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Save plot
+fname <- "./results/genus/abund_sample.png"
+ggsave(fname, plot = p)
 
 ```
-This one summarizes each sample individually
-```{r rank_abundance_curve_single}
-
-sam_names <- sample_names(ps)
-for (i in 1:length(sam_names)) {
-  test <- filter(table_rel_long, table_rel_long$sample == sam_names[i])   ## one at a time -- add for loop
-  order_idx <- order(test$rel_ab, na.last = TRUE, decreasing = TRUE)  # indices
-  test2 <- test[order_idx,] 
-    
-  p <- head(test2,20) %>%
-       ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab), y = log10(rel_ab))) +  # I think it's listing x in alphabetical order
-       geom_point(
-          shape = 21,
-          color = "black",
-          size = 3,
-          stroke = 1
-      ) +
-      labs(title = sam_names[i]) + 
-        xlab("Genus") +
-        ylab("log of relative abundance [%]")  #
-      p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
-  fname = paste("./results/genus/abund_",sam_names[i], ".png", sep = "") # i
-    ggsave(fname)
-}
-```
-
-# Scatter plots look better with duplicates
-
-Summarizes genus abundance
-
 # Single scatter plot
+This summarizes the relative abundance for one genus at a time.
+It shows the variation from the biological replicates.
+
 ```{r plot_scatter_loop}
-#for (i in 1:10) {
-i = 5
-  gs <- genus_summary_filt %>% # how to pipe data (dplyr filter)
-    filter(Genus == genus_names[i]) # i
+for (i in 1:length(genus_names)) {
+  
+  gs <- if (is.na(genus_names[i])) {
+    filter(table_rel_long, is.na(Genus), seq %in% fct_seq_levels)
+  } else {
+    filter(table_rel_long, Genus %in% genus_names[i], seq %in% fct_seq_levels)
+  }
   
   gs %>%  
     ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) +
-    #ggplot(aes(x = size.mm, y = sum_ab, fill = seq)) +
     geom_point(
       shape = 21,
       color = "black",
       size = 3,
       stroke = 1
     ) +
-    #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),   # A = filled, B = empty
-    #na.value = "white"                       # fallback fill color for NA
-    #) +
-    labs(title = genus_names[i]) + #, fill = "Replicate ID") +
+    labs(title = genus_names[i]) +
     xlab("Sieve Range [mm]") +
-    ylab("Relative Abundance [%]")  # Sum of
+    ylab("Relative Abundance [%]")  
   
-  fname = paste("./results/genus/genus_",genus_names[i], ".png", sep = "") # i
+  fname = paste("./results/genus/genus_",genus_names[i], ".png", sep = "") 
   ggsave(fname)
-#}
+}
 ```
-
-
 # Multiple subplots
 ```{r plot_scatter_multiple}
-# Ca_Contendobacter, Ca_Competibacter, Ca_Phosphoribacter
-gs.group_plot <- genus_summary2 %>%
-  filter(Genus %in% c(genus_names[1], genus_names[2], genus_names[3])) 
-show(gs.group_plot)
+
+gs.group_plot <- table_rel_long %>%
+  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), seq %in% fct_seq_levels)
 
 ### plot
 gs.group_plot %>%
   ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) + 
-  #ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
     shape = 21,
@@ -348,40 +284,33 @@ gs.group_plot %>%
     size = 3,
     stroke = 1
   ) +
-  #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C"="gray"),
-    #na.value = "white"
-  #) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1)) +
-  #labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance [%]")
 
 ggsave("./results/genus_group.png")
 ```
 
-We can save that table as a new R data frame, or we can pipe that data directly into a ggplot2 command. Notice that the timepoint column is the "character" class rather than a numeric class like a "double" Let's add a modification so the timepoint column is correctly classified.
-
-
 # Alpha Diversity
 ```{r diversity_plot}
 
 # Base plot (no fill here)
-p <- plot_richness(ps_filt, 
-                   x = "size.mm", 
-                   measures = c("Shannon"))
+p <- plot_richness(
+  ps_filt, 
+  x = "size.mm", 
+  measures = c("Shannon")
+)
 
-# Add custom geom_point with manual fill scale
-p + 
-  #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),
-    #na.value = "white"
-  #) +
-  #labs(fill = "Replicate ID") +
+# Add custom axis labels and theme
+p <- p +
   xlab("Sieve Range [mm]") +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
 
-ggsave("./results/diversity.png")
+# Save the plot
+ggsave("./results/diversity.png", plot = p)
+
+print(p)
+
 ```
 
 # Ordination 
