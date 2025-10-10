@@ -140,10 +140,12 @@ This format is easier to view the data.
 
 ```{r combine_wide}
 
-#### adds genus to table_rel
-tax_short0 <- taxonomy[,c(1,7,8)]  # keep seq, Genus, Species
-tax_short  <- tax_short0[order(tax_short0$Genus), ]  # sort alphabetically
+# removes some columns from taxonomy
+tax_short <- taxonomy %>%
+  group_by(Genus,Species,seq) %>%
+  summarise()
 
+# Adds table_rel to taxonomy
 table_rel_wide <-  tax_short %>%
   left_join(table_rel, join_by(seq))  # join taxonomy by the sequence ID
 
@@ -190,6 +192,10 @@ genus_summary <- table_rel_long %>% # perform some functions on table_rel
 # sum up the relative abundance of each unique Genus at each unique combination of date and location 
   summarise(sum_ab = sum(rel_ab)) 
 
+# Genus + rel_ab + seq
+genus_summary2 <- table_rel_long %>%
+  group_by(Genus, Species, seq) %>%
+  summarise(avg_ab = sum(rel_ab)/nsamples(ps))
 
 genus_summary_filt <- table_rel_long_filt %>% # perform some functions on table_rel
   group_by(Genus, seq, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus 
@@ -210,20 +216,22 @@ This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 ```{r rank_abundance_curve}
 n_asv = 25  # number of ASVs to include in the plot
   
+
 # I want to average across samples
-rel_ab_avg <- rowMeans(table_rel_wide[,4:21])
-table_rel_avg <- cbind(table_rel_wide[,1:3],rel_ab_avg)
-order_idx <- order(table_rel_avg$rel_ab_avg, na.last = TRUE, decreasing = TRUE)  # indices
-table_rel_avg_sorted = table_rel_avg[order_idx,]    
-t <- head(table_rel_avg_sorted,n_asv)
+#rel_ab_avg <- rowMeans(table_rel_wide[,4:21])
+#table_rel_avg <- cbind(table_rel_wide[,1:3],rel_ab_avg)
+order_idx <- order(genus_summary2$avg_ab, na.last = TRUE, decreasing = TRUE)  # indices
+gs_sorted = genus_summary2[order_idx,]    
+t <- head(gs_sorted,n_asv)
 
 # Factor Genera
-fct_Genus <- forcats::fct_infreq(t$Genus, t$rel_ab_avg) # factor genus based on decreasing rel_ab
+fct_Genus <- forcats::fct_infreq(t$Genus, t$avg_ab) # factor genus based on decreasing rel_ab
 fct_levels <- levels(fct_Genus)
+genus_names <- unique(t$Genus)
 
   p <- t %>%
        mutate(Genus = factor(Genus, levels = fct_levels)) %>%
-       ggplot(aes(x = Genus, y = rel_ab_avg)) + 
+       ggplot(aes(x = Genus, y = avg_ab)) + 
        #ggplot(aes(x = forcats::fct_infreq(Genus, rel_ab_avg), y = rel_ab_avg)) + 
        geom_bar(stat = "identity") +
        geom_point(
@@ -245,8 +253,6 @@ fct_levels <- levels(fct_Genus)
 This groups per sample
 Genus are conglomerated (not separated by ASVs)
 ```{r rank_abundance_curve2}
-tmp <- head(table_rel_avg_sorted,n_asv)
-genus_names <- unique(tmp$Genus)
 
 gs <- genus_summary %>% # how to pipe data (dplyr filter)
     filter(Genus %in% genus_names) 
