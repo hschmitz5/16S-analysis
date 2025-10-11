@@ -152,13 +152,28 @@ Here, we define the genus we want to filter the data by.
 We also order it how we want it to be displayed on the x-axis.
 
 ```{r sort_genus}
+n_asv = 25  # number of ASVs to include in the plot 
+
 # Keep separate seq per genus  (collapse size)
 genus_summary_seq <- table_rel_long %>%
   group_by(Genus, Species, seq) %>%
-  summarise(avg_ab = sum(rel_ab)/nsamples(ps)) # average across samples
+  summarise(avg_ab = sum(rel_ab)/nsamples(ps), .groups = "drop") %>%  # average across samples
+  arrange(desc(avg_ab))  # groups the matrix by the avg_ab
 
 # Test that the average relative abundance adds up to 100%
 sum(genus_summary_seq$avg_ab)
+
+#### Subset the data to include n_asv ASVs:
+t <- head(genus_summary_seq,n_asv)
+
+### Factor Genera
+fct_Genus <- forcats::fct_infreq(t$Genus, t$avg_ab) # factor genus based on decreasing rel_ab
+fct_Genus_levels <- levels(fct_Genus)
+genus_names <- unique(t$Genus) 
+
+### Factor seqs 
+fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor genus based on decreasing rel_ab
+fct_seq_levels <- levels(fct_seq)
 
 ```
 # Rank Abundance Curve (collapses size)
@@ -170,25 +185,6 @@ NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 
 ```{r rank_abundance_curve}
-
-n_asv = 25  # number of ASVs to include in the plot  
-
-#### Subset the data to include n_asv ASVs:
-# Order genus_summary_seq based on decreasing relative abundance
-order_idx <- order(genus_summary_seq$avg_ab, na.last = TRUE, decreasing = TRUE)  
-# Apply the indeces to sort the data
-gs_sorted = genus_summary_seq[order_idx,] 
-# Subset the data 
-t <- head(gs_sorted,n_asv)
-
-### Factor Genera
-fct_Genus <- forcats::fct_infreq(t$Genus, t$avg_ab) # factor genus based on decreasing rel_ab
-fct_Genus_levels <- levels(fct_Genus)
-genus_names <- unique(t$Genus) # This is used in a later plots
-
-### Factor seqs 
-fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor genus based on decreasing rel_ab
-fct_seq_levels <- levels(fct_seq)
 
 ### Plot
 p <- t %>%
@@ -376,4 +372,5 @@ group_names = metadata$size.mm
 inv = multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
 summary(inv)
 ```
+
 
