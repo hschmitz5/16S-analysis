@@ -221,9 +221,6 @@ genus_summary_size <- table_rel_long %>%
   filter(seq %in% fct_seq_levels) %>%
   group_by(Genus, size.mm, duplicate.id) %>%
   summarise(sum_ab = sum(rel_ab)) 
-
-# Test that the average is 100%
-sum(genus_summary_size$sum_ab/nsamples(ps))
   
 # Plot
 p <- genus_summary_size %>%
@@ -379,3 +376,4 @@ group_names = metadata$size.mm
 inv = multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
 summary(inv)
 ```
+
