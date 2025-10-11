@@ -3,4 +3,6 @@
 .RData
 .Ruserdata
 
-/data
+# Ignore everything in the results and data directories
+/results/
+/data/
