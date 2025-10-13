@@ -25,6 +25,7 @@ library(phyloseq)
 library(tidyverse)
 library(vegan)
 library(indicspecies)  # for indicator species analysis
+library(readxl)
 library(writexl)
 
 # optional
@@ -34,7 +35,7 @@ library(MetBrewer) # fun color palettes
 # Read in data
 I read in the QIIME artifacts as a phyloseq object. Phyloseq is an R package that has many convenient functions built in for manipulating and analyzing microbiome data. We will use the qiime2R package to import the QIIME data directly into a phyloseq object. 
 
-```{r load_ps}
+```{r load_data}
 
 getwd() 
 
@@ -48,6 +49,11 @@ ps <- qiime2R::qza_to_phyloseq(
 # factor the size metadata
 size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
+
+# EPS data
+pnps <- read_excel("./data/PNPS_conc.xlsx")
+pnps.lb <- pnps[,2:5]
+pnps.tb <- pnps[,c(2,6:8)]
 
 ```
 
@@ -160,9 +166,6 @@ genus_summary_seq <- table_rel_long %>%
   summarise(avg_ab = sum(rel_ab)/nsamples(ps), .groups = "drop") %>%  # average across samples
   arrange(desc(avg_ab))  # groups the matrix by the avg_ab
 
-# Test that the average relative abundance adds up to 100%
-sum(genus_summary_seq$avg_ab)
-
 #### Subset the data to include n_asv ASVs:
 t <- head(genus_summary_seq,n_asv)
 
@@ -172,8 +175,12 @@ fct_Genus_levels <- levels(fct_Genus)
 genus_names <- unique(t$Genus) 
 
 ### Factor seqs 
-fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor genus based on decreasing rel_ab
+fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor seq based on decreasing rel_ab
 fct_seq_levels <- levels(fct_seq)
+
+
+# Test that the average relative abundance adds up to 100%
+sum(genus_summary_seq$avg_ab)
 
 ```
 # Rank Abundance Curve (collapses size)
@@ -184,7 +191,7 @@ The bar plot adds up the relative abundance of each ASV.
 NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 
-```{r rank_abundance_curve}
+```{r rank_abundance_average}
 
 ### Plot
 p <- t %>%
@@ -210,18 +217,20 @@ This subsets the data to only include the seqs with the highest n_asv relative a
 So, the relative abundance is not the same as the sum for all ASVs per genus.
 This is to be consistent with the data shown in the previous plot.
 
-```{r rank_abundance_curve2}
+```{r rank_abundance_size}
+
+n_replicates = 3   # A, B, C
 
 # Subset
 genus_summary_size <- table_rel_long %>%
   filter(seq %in% fct_seq_levels) %>%
-  group_by(Genus, size.mm, duplicate.id) %>%
-  summarise(sum_ab = sum(rel_ab)) 
+  group_by(Genus, size.mm) %>%
+  summarise(avg_ab = sum(rel_ab)/n_replicates) # average across replicates and combine different ASVs
   
 # Plot
 p <- genus_summary_size %>%
   mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
-  ggplot(aes(x = Genus, y = sum_ab, fill = size.mm)) +
+  ggplot(aes(x = Genus, y = avg_ab, fill = size.mm)) +
   geom_bar(stat = "identity", position = "dodge") +  
   xlab("Genus") +
   ylab("Relative Abundance [%]") +
@@ -231,12 +240,14 @@ p <- genus_summary_size %>%
 fname <- "./results/genus/abund_sample.png"
 ggsave(fname, plot = p)
 
+print(p)
+
 ```
 # Single scatter plot
 This summarizes the relative abundance for one genus at a time.
 It shows the variation from the biological replicates.
 
-```{r plot_scatter_loop}
+```{r plot_scatter_single}
 for (i in 1:length(genus_names)) {
   
   gs <- if (is.na(genus_names[i])) {
@@ -262,6 +273,7 @@ for (i in 1:length(genus_names)) {
 }
 ```
 # Multiple subplots
+This combines multiple genera in subplots
 ```{r plot_scatter_multiple}
 
 gs.group_plot <- table_rel_long %>%
@@ -306,10 +318,9 @@ print(p)
 
 ```
 
-# Ordination 
+# Ordination - NMDS
 tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 
-Try it here ordination B diversity
 ```{r ordination-nmds}
 cols <- c('red','orange','green', 'blue', 'violet', 'black')
 
@@ -324,7 +335,7 @@ print(p1)
 
 ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 ```
-Try pcoa instead
+# Ordination - PCoA
 ```{r ordination-pcoa}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
@@ -337,7 +348,6 @@ print(p1)
 ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 ```
 
-
 # Distance
 What is the difference between weighted and unweighted unifrac
 
@@ -345,7 +355,7 @@ What is the difference between weighted and unweighted unifrac
 ps_filt.dist <- distance(ps_filt, method = "wunifrac" ) # weighted
 show(ps_filt.dist)
 ```
-R statistic ranges from -1 to 1. 0 is random. What is -1?
+R statistic ranges from -1 to 1. 0 is random. 
 ```{r plot_anosim}
 ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm, permutations = 9999)
 summary(ps_filt.ano)
