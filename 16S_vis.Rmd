@@ -71,13 +71,15 @@ ps_filt0 <- phyloseq::subset_taxa(ps, Kingdom != "Unassigned")
 # define minimum depth to rarefy
 rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
-ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
+ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
   rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+#ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
+  #rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
  
 
 # Remove taxa not seen more than 3 times in at least 20% of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
-ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+#ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
 
 # relative abundance
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
@@ -85,7 +87,7 @@ ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
-print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
+#print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
 ```
 
@@ -227,11 +229,12 @@ genus_summary_size <- table_rel_long %>%
   group_by(Genus, size.mm) %>%
   summarise(avg_ab = sum(rel_ab)/n_replicates) # average across replicates and combine different ASVs
   
-# Plot
+# Plot  
 p <- genus_summary_size %>%
   mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
   ggplot(aes(x = Genus, y = avg_ab, fill = size.mm)) +
   geom_bar(stat = "identity", position = "dodge") +  
+  scale_fill_manual(values=met.brewer("Hiroshige", 6)) +
   xlab("Genus") +
   ylab("Relative Abundance [%]") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -298,12 +301,13 @@ ggsave("./results/genus_group.png")
 
 # Alpha Diversity
 ```{r diversity_plot}
+div_type = c("Shannon")
 
 # Base plot (no fill here)
 p <- plot_richness(
   ps_filt, 
   x = "size.mm", 
-  measures = c("Shannon")
+  measures = div_type
 )
 
 # Add custom axis labels and theme
@@ -312,7 +316,8 @@ p <- p +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
 
 # Save the plot
-ggsave("./results/diversity.png", plot = p)
+filename <- paste0("./results/diversity/diversity_", div_type, ".png")
+ggsave(filename, plot = p)
 
 print(p)
 
@@ -322,7 +327,7 @@ print(p)
 tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 
 ```{r ordination-nmds}
-cols <- c('red','orange','green', 'blue', 'violet', 'black')
+cols <- met.brewer("Hiroshige", 6) 
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
