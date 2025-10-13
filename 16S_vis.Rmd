@@ -24,6 +24,8 @@ library(qiime2R)
 library(phyloseq)
 library(tidyverse)
 library(vegan)
+library(indicspecies)  # for indicator species analysis
+library(writexl)
 
 # optional
 library(MetBrewer) # fun color palettes
@@ -44,12 +46,14 @@ ps <- qiime2R::qza_to_phyloseq(
 )
 
 # factor the size metadata
-ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"))
+size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
+ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
 
 ```
 
 # Basic filtering and parsing
-I will do a bit of manipulation using phyloseq functions, then we will use the suite of tidyverse packages to do more data manipulation. Let's start with getting relative abundance data.
+I will do a bit of manipulation using phyloseq functions, then we will use the suite of tidyverse packages to do more data manipulation. 
+Let's start with getting relative abundance data.
 
 ```{r apply_filt}
 # remove Mitochondria and Chloroplasts (removes Eukaryotes)
@@ -59,19 +63,26 @@ ps_filt0 <- phyloseq::subset_taxa(ps, ! Family %in% c("Mitochondria", "Chloropla
 ps_filt0 <- phyloseq::subset_taxa(ps, Kingdom != "Unassigned")
 
 # define minimum depth to rarefy
-rarefy_level <- min(sample_sums(ps_filt0))
+rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
-ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
+ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
   rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+ 
+
+# Remove taxa not seen more than 3 times in at least 20% of the samples. 
+# This protects against an OTU with small mean & trivially large C.V.
+ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
 
 # relative abundance
-ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))
+ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
 
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
-print(paste("Number of ASVs after filtering:", ntaxa(ps_filt))) 
+print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
+print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
 ```
+
 # Format as data frames
 
 This chunk saves the taxonomy, metadata, and count tables as data frames. In these tables, each row is a unique ASV. 
@@ -87,7 +98,7 @@ head(taxonomy)
 metadata <- as.data.frame(as.matrix(ps_rel@sam_data)) %>% 
   rownames_to_column(var = "sample")
 # factor the size metadata
-metadata$size.mm <- factor(metadata$size.mm, levels = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"))
+metadata$size.mm <- factor(metadata$size.mm, levels = size_factored)
 
 head(metadata)
 
@@ -96,14 +107,33 @@ table_rel <- as.data.frame(ps_rel@otu_table) %>%
 
 head(table_rel)
 
+``` 
+# Data Manipulation: Combine into wide dataframe
 
-```
+This combines taxonomy and relative abundance in a wide dataframe. Then, it exports it to an excel spreadsheet. 
+This format is easier to view the data.
 
-# Data Manipulation
+```{r combine_wide}
+
+# removes some columns from taxonomy
+tax_short <- taxonomy %>%
+  group_by(Genus,Species,seq) %>%
+  summarise()
+
+# Adds table_rel to taxonomy
+table_rel_wide <-  tax_short %>%
+  left_join(table_rel, join_by(seq))  # join taxonomy by the sequence ID
+
+head(table_rel_wide)
+
+write_xlsx(table_rel_wide, "./results/table_rel_wide.xlsx")
+
+``` 
+# Data Manipulation: Combine into long dataframe
 
 This chunk manipulates the relative abundance table and combines it with the taxonomy table. We used the pivot_longer function to make this into a "long" dataframe, which is the desired format for using ggplot2. Read a bit more about long format here: http://eriqande.github.io/rep-res-web/lectures/ggplot_2_reshape_facets_stats.html. The long format will seem very chaotic, but I promise it will be extremely useful for plotting and data analysis tasks going forward.
 
-```{r combine_mats}
+```{r combine_long}
 
 table_rel_long <- table_rel %>% 
   pivot_longer(cols = !seq, names_to = "sample", values_to = "rel_ab") %>% # make a "long" dataframe
@@ -111,60 +141,135 @@ table_rel_long <- table_rel %>%
   left_join(metadata, join_by(sample)) # join metadata by the sample ID
 
 head(table_rel_long)
+
 ```
 
+
 # Subsetting and plotting
-We can use a variety of filtering functions from dplyr to manipulate data for more concise plots. For example, we could select specific bacteria to look for, or group all members of the same family or genus together. Let's do a simple example - we will plot the abundance of the genus Zoogleoa from each sampling location. First, let's see what the data looks like when we filter it to our specifications. 
+We can use a variety of filtering functions from dplyr to manipulate data for more concise plots. For example, we could select specific bacteria to look for, or group all members of the same family or genus together. 
 
 Here, we define the genus we want to filter the data by.
 We also order it how we want it to be displayed on the x-axis.
 
-Adding duplicate.id to "group_by" seperates the data 
 ```{r sort_genus}
-# make a data frame of first two lines
-genus_summary <- table_rel_long %>% # perform some functions on table_rel
-  group_by(Genus, size.mm, duplicate.id) %>% # group at the genus level, we will use this to sum up everything that has the same genus (ignore species)
-  summarise(sum_ab = sum(rel_ab)) #%>% # sum up the relative abundance of each unique Genus at each unique combination of date and location
+n_asv = 25  # number of ASVs to include in the plot 
 
-# Ca_Accumulibacter
-gs.ca_ac <- genus_summary %>% # how to pipe data (dplyr filter)
-  filter(Genus == "Ca_Accumulibacter")
-show(gs.ca_ac)
+# Keep separate seq per genus  (collapse size)
+genus_summary_seq <- table_rel_long %>%
+  group_by(Genus, Species, seq) %>%
+  summarise(avg_ab = sum(rel_ab)/nsamples(ps), .groups = "drop") %>%  # average across samples
+  arrange(desc(avg_ab))  # groups the matrix by the avg_ab
 
-# Ca_Phosphoribacter, Ca_Accumulibacter,Ca_Competibacter
-gs.pac <- genus_summary %>%
-  filter(Genus %in% c("Ca_Phosphoribacter", "Ca_Accumulibacter","Ca_Competibacter")) 
-show(gs.pac)
+# Test that the average relative abundance adds up to 100%
+sum(genus_summary_seq$avg_ab)
+
+#### Subset the data to include n_asv ASVs:
+t <- head(genus_summary_seq,n_asv)
+
+### Factor Genera
+fct_Genus <- forcats::fct_infreq(t$Genus, t$avg_ab) # factor genus based on decreasing rel_ab
+fct_Genus_levels <- levels(fct_Genus)
+genus_names <- unique(t$Genus) 
+
+### Factor seqs 
+fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor genus based on decreasing rel_ab
+fct_seq_levels <- levels(fct_seq)
+
 ```
-# Scatter plots look better with duplicates
+# Rank Abundance Curve (collapses size)
+This shows the genera that have the highest relative abundance, averaged for all samples.
+The scatter plot shows the different ASVs that make up each genus.
+Most genera are only one ASV, and some are composed of several. 
+The bar plot adds up the relative abundance of each ASV.
+NA are samples for which the genus was not identified.
+This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 
-I considered making a boxplot, but I only have two data points. It is recommended to make box plots with more than 5 data points.
+```{r rank_abundance_curve}
 
-# Single scatter plot
-```{r plot_scatter_single}
-gs.ca_ac %>%
-  ggplot(aes(x = size.mm, y = sum_ab)) + #, fill = duplicate.id)) +
+### Plot
+p <- t %>%
+  mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
+  ggplot(aes(x = Genus, y = avg_ab)) + 
+  geom_bar(stat = "identity") +
   geom_point(
     shape = 21,
     color = "black",
     size = 3,
     stroke = 1
   ) +
-  #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),   # A = filled, B = empty
-    #na.value = "white"                       # fallback fill color for NA
-  #) +
-  labs(title = "Ca_Accumulibacter") + #, fill = "Replicate ID") +
-  xlab("Sieve Range [mm]") +
-  ylab("Sum of Relative Abundance")
+  xlab("Genus") +
+  ylab("Relative Abundance [%]")  #
+  p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+fname = paste("./results/genus/abund_avg.png") 
+ggsave(fname)
 
-ggsave("./results/genus_ca_ac.png")
 ```
+# Rank Abundance Curve with size
+This subsets the data to only include the seqs with the highest n_asv relative abundance.
+So, the relative abundance is not the same as the sum for all ASVs per genus.
+This is to be consistent with the data shown in the previous plot.
 
+```{r rank_abundance_curve2}
+
+# Subset
+genus_summary_size <- table_rel_long %>%
+  filter(seq %in% fct_seq_levels) %>%
+  group_by(Genus, size.mm, duplicate.id) %>%
+  summarise(sum_ab = sum(rel_ab)) 
+  
+# Plot
+p <- genus_summary_size %>%
+  mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
+  ggplot(aes(x = Genus, y = sum_ab, fill = size.mm)) +
+  geom_bar(stat = "identity", position = "dodge") +  
+  xlab("Genus") +
+  ylab("Relative Abundance [%]") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Save plot
+fname <- "./results/genus/abund_sample.png"
+ggsave(fname, plot = p)
+
+```
+# Single scatter plot
+This summarizes the relative abundance for one genus at a time.
+It shows the variation from the biological replicates.
+
+```{r plot_scatter_loop}
+for (i in 1:length(genus_names)) {
+  
+  gs <- if (is.na(genus_names[i])) {
+    filter(table_rel_long, is.na(Genus), seq %in% fct_seq_levels)
+  } else {
+    filter(table_rel_long, Genus %in% genus_names[i], seq %in% fct_seq_levels)
+  }
+  
+  gs %>%  
+    ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) +
+    geom_point(
+      shape = 21,
+      color = "black",
+      size = 3,
+      stroke = 1
+    ) +
+    labs(title = genus_names[i]) +
+    xlab("Sieve Range [mm]") +
+    ylab("Relative Abundance [%]")  
+  
+  fname = paste("./results/genus/genus_",genus_names[i], ".png", sep = "") 
+  ggsave(fname)
+}
+```
 # Multiple subplots
 ```{r plot_scatter_multiple}
-gs.pac %>%
-  ggplot(aes(x = size.mm, y = sum_ab)) +  #, fill = duplicate.id)) + 
+
+gs.group_plot <- table_rel_long %>%
+  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), seq %in% fct_seq_levels)
+
+### plot
+gs.group_plot %>%
+  ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
     shape = 21,
@@ -172,76 +277,63 @@ gs.pac %>%
     size = 3,
     stroke = 1
   ) +
-  #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C"="gray"),
-    #na.value = "white"
-  #) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1)) +
-  #labs(fill = "Replicate ID") +
   xlab("Sieve Range [mm]") +
-  ylab("Sum of Relative Abundance")
+  ylab("Sum of Relative Abundance [%]")
 
-ggsave("./results/genus_pac.png")
+ggsave("./results/genus_group.png")
 ```
 
-We can save that table as a new R data frame, or we can pipe that data directly into a ggplot2 command. Notice that the timepoint column is the "character" class rather than a numeric class like a "double" Let's add a modification so the timepoint column is correctly classified.
-
-
 # Alpha Diversity
-
 ```{r diversity_plot}
 
 # Base plot (no fill here)
-p <- plot_richness(ps_filt, 
-                   x = "size.mm", 
-                   measures = c("Chao1")) #, "Shannon"))
+p <- plot_richness(
+  ps_filt, 
+  x = "size.mm", 
+  measures = c("Shannon")
+)
 
-# Add custom geom_point with manual fill scale
-p + 
-  geom_point(
-    #aes(fill = duplicate.id),
-    shape = 21,
-    color = "black",
-    size = 3,
-    stroke = 1
-  ) +
-  #scale_fill_manual(
-    #values = c("A" = "#4E2A84", "B" = NA, "C" = "gray"),
-    #na.value = "white"
-  #) +
-  #labs(fill = "Replicate ID") +
+# Add custom axis labels and theme
+p <- p +
   xlab("Sieve Range [mm]") +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
 
-ggsave("./results/diversity.png")
+# Save the plot
+ggsave("./results/diversity.png", plot = p)
+
+print(p)
+
 ```
 
 # Ordination 
 tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 
 Try it here ordination B diversity
-```{r ordination}
+```{r ordination-nmds}
 cols <- c('red','orange','green', 'blue', 'violet', 'black')
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
-                     scale_color_manual(values=cols) 
+                     scale_color_manual(values=cols)  +
+                     labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
-p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+#p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
   
-#print(p1)
+print(p1)
 
 ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 ```
 Try pcoa instead
-```{r}
+```{r ordination-pcoa}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
-                     scale_color_manual(values=cols)
+                     scale_color_manual(values=cols) + 
+                     labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
-p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+#p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
 
-#print(p1)
+print(p1)
 ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 ```
 
@@ -249,14 +341,36 @@ ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
 # Distance
 What is the difference between weighted and unweighted unifrac
 
-```{r}
+```{r calculate_distance}
 ps_filt.dist <- distance(ps_filt, method = "wunifrac" ) # weighted
 show(ps_filt.dist)
 ```
 R statistic ranges from -1 to 1. 0 is random. What is -1?
-```{r}
-ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm)
+```{r plot_anosim}
+ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm, permutations = 9999)
 summary(ps_filt.ano)
-plot(ps_filt.ano)
+
+# Open a PNG device
+png("./results/anosim_plot.png", width = 800, height = 600)
+
+# Plot the ANOSIM result
+plot(ps_filt.ano,
+     xlab = "Size [mm]",
+     ylab = "Dissimilarity Ranks")
+
+# Close the device to save the file
+dev.off()
 ```
+```{r plot_species}
+seq_names = table_rel[,1]    # define the sequence names
+table_rel2 = table_rel[,-1]  # removes the sequence names from the matrix
+rownames(table_rel2) <- seq_names # label the rows with the sequences
+table_rel2 = t(table_rel2)   # transpose
+
+group_names = metadata$size.mm
+
+inv = multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
+summary(inv)
+```
+
 

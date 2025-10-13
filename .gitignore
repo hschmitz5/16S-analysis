@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Ignore everything in the results and data directories
+/results/
+/data/
