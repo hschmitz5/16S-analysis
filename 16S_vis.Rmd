@@ -50,6 +50,9 @@ ps <- qiime2R::qza_to_phyloseq(
 size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
 
+# define variables not listed in metadata
+n_replicates = 3   # A, B, C
+
 # EPS data
 pnps <- read_excel("./data/PNPS_conc.xlsx")
 pnps.lb <- pnps[,2:5]
@@ -220,8 +223,6 @@ So, the relative abundance is not the same as the sum for all ASVs per genus.
 This is to be consistent with the data shown in the previous plot.
 
 ```{r rank_abundance_size}
-
-n_replicates = 3   # A, B, C
 
 # Subset
 genus_summary_size <- table_rel_long %>%
