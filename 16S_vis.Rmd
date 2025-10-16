@@ -167,25 +167,49 @@ n_asv = 25  # number of ASVs to include in the plot
 
 # Keep separate seq per genus  (collapse size)
 genus_summary_seq <- table_rel_long %>%
-  group_by(Genus, Species, seq) %>%
-  summarise(avg_ab = sum(rel_ab)/nsamples(ps), .groups = "drop") %>%  # average across samples
-  arrange(desc(avg_ab))  # groups the matrix by the avg_ab
+  group_by(Genus, seq) %>%
+  summarise(
+    # mean is averaging across all samples (for each ASV)
+    mean_ab = mean(rel_ab),   
+    .groups = "drop") %>%  
+  # groups the matrix by the mean_ab
+  arrange(desc(mean_ab)) %>%  
+  # Subset the data to include n_asv ASVs
+  head(n_asv) %>%
+  # Remove when Genus = NA
+  filter(!is.na(Genus))
+ 
+# Collapse separate seq
+gs_seq_avg <- table_rel_long %>%
+  # only include n_asv
+  filter(seq %in% genus_summary_seq$seq) %>%
+  group_by(sample, Genus) %>%
+  # sum over ASVs
+  summarise(sum_ab = sum(rel_ab), .groups = "drop") %>%
+  group_by(Genus) %>%
+  summarise(
+    # average across samples
+    mean_ab = mean(sum_ab),
+    sd_ab = sd(sum_ab),
+    .groups = "drop"
+  ) %>%
+  # groups the matrix by the mean_ab
+  arrange(desc(mean_ab)) %>%
+  # Factor the genus based on relative abundance
+  mutate(Genus = forcats::fct_infreq(Genus, mean_ab))
+  
+### Define Genus factor
+genus_levels <- levels(gs_seq_avg$Genus)
+# Apply to genus_summary_seq
+genus_summary_seq <- genus_summary_seq %>%
+  mutate(Genus = factor(Genus, levels = genus_levels))
 
-#### Subset the data to include n_asv ASVs:
-t <- head(genus_summary_seq,n_asv)
+### Names
+genus_names <- gs_seq_avg$Genus 
+seq_names <- genus_summary_seq$seq
 
-### Factor Genera
-fct_Genus <- forcats::fct_infreq(t$Genus, t$avg_ab) # factor genus based on decreasing rel_ab
-fct_Genus_levels <- levels(fct_Genus)
-genus_names <- unique(t$Genus) 
-
-### Factor seqs 
-fct_seq <- forcats::fct_infreq(t$seq, t$avg_ab) # factor seq based on decreasing rel_ab
-fct_seq_levels <- levels(fct_seq)
-
-
-# Test that the average relative abundance adds up to 100%
-sum(genus_summary_seq$avg_ab)
+# Test that the average relative abundance adds up to 100% (don't apply head)
+#sum(genus_summary_seq$mean_ab)
 
 ```
 # Rank Abundance Curve (collapses size)
@@ -195,46 +219,83 @@ Most genera are only one ASV, and some are composed of several.
 The bar plot adds up the relative abundance of each ASV.
 NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
-
 ```{r rank_abundance_average}
 
-### Plot
-p <- t %>%
-  mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
-  ggplot(aes(x = Genus, y = avg_ab)) + 
-  geom_bar(stat = "identity") +
+#fct_rev: puts largest rel_ab at top
+ggplot(gs_seq_avg, aes(x = fct_rev(Genus), y = mean_ab)) +
+  geom_col(fill = "steelblue", width = 0.6) +
+  geom_errorbar(aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab), 
+                width = 0.2, color = "black") +
   geom_point(
-    shape = 21,
+    data = genus_summary_seq,
+    aes(x = fct_rev(Genus), y = mean_ab), 
     color = "black",
-    size = 3,
-    stroke = 1
+    #position = position_jitter(width = 0.2),  # optional: adds slight jitter
+    size = 2
   ) +
-  xlab("Genus") +
-  ylab("Relative Abundance [%]")  #
-  p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
+  labs(
+    title = "Genus-Level Relative Abundance (with ASV overlay)",
+    y = "Mean Relative Abundance [%]",
+    x = "Genus"
+  ) +
+  theme_minimal() +
+  coord_flip()
+
 fname = paste("./results/genus/abund_avg.png") 
 ggsave(fname)
-
 ```
 # Rank Abundance Curve with size
 This subsets the data to only include the seqs with the highest n_asv relative abundance.
 So, the relative abundance is not the same as the sum for all ASVs per genus.
 This is to be consistent with the data shown in the previous plot.
 
+Do NOT use mean to average here because, when a sample has more than one ASV, 
+then that calculation would average across each different ASV.
+
 ```{r rank_abundance_size}
 
 # Subset
 genus_summary_size <- table_rel_long %>%
-  filter(seq %in% fct_seq_levels) %>%
+  filter(seq %in% seq_names) %>%
+  group_by(Genus, size.mm, duplicate.id) %>%
+  # sum over ASVs
+  summarise(sum_ab = sum(rel_ab), .groups = "drop") %>%
   group_by(Genus, size.mm) %>%
-  summarise(avg_ab = sum(rel_ab)/n_replicates) # average across replicates and combine different ASVs
-  
+  summarise(
+    # average across replicates
+    mean_ab = mean(sum_ab),
+    sd_ab = sd(sum_ab)
+  ) %>%
+  mutate(Genus = factor(Genus, levels = genus_levels)) 
+
+
+# Plot  
+ggplot(genus_summary_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor(size.mm))) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(
+    aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab),
+    width = 0.2,
+    position = position_dodge(width = 0.8)
+  ) +
+  scale_fill_manual(values=met.brewer("Hiroshige", 6), name = "Size (mm)") +
+  labs(
+    x = "Genus",
+    y = "Mean Relative Abundance [%]",
+    title = "Genus-Level Abundance by Size Fraction"
+  ) +
+  theme_minimal() +
+  coord_flip()
+
+```
+
+```{r rank_abundance_size2}
+
 # Plot  
 p <- genus_summary_size %>%
-  mutate(Genus = factor(Genus, levels = fct_Genus_levels)) %>%
-  ggplot(aes(x = Genus, y = avg_ab, fill = size.mm)) +
+  ggplot(aes(x = Genus, y = mean_ab, fill = size.mm)) +
   geom_bar(stat = "identity", position = "dodge") +  
+  geom_errorbar(aes(x=Genus, ymin=mean_ab-sd_ab, ymax=mean_ab+sd_ab)) + #, 
+                #width=0.4, colour="orange", alpha=0.9, size=1.3)
   scale_fill_manual(values=met.brewer("Hiroshige", 6)) +
   xlab("Genus") +
   ylab("Relative Abundance [%]") +
