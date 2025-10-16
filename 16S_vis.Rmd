@@ -162,7 +162,7 @@ We can use a variety of filtering functions from dplyr to manipulate data for mo
 Here, we define the genus we want to filter the data by.
 We also order it how we want it to be displayed on the x-axis.
 
-```{r sort_genus}
+```{r subset_genus}
 n_asv = 25  # number of ASVs to include in the plot 
 
 # Keep separate seq per genus  (collapse size)
@@ -196,8 +196,8 @@ gs_seq_avg <- table_rel_long %>%
   # groups the matrix by the mean_ab
   arrange(desc(mean_ab)) %>%
   # Factor the genus based on relative abundance
-  mutate(Genus = forcats::fct_infreq(Genus, mean_ab))
-  
+  mutate(Genus = forcats::fct_reorder(Genus, mean_ab, .desc = TRUE))
+
 ### Define Genus factor
 genus_levels <- levels(gs_seq_avg$Genus)
 # Apply to genus_summary_seq
@@ -244,17 +244,8 @@ ggplot(gs_seq_avg, aes(x = fct_rev(Genus), y = mean_ab)) +
 fname = paste("./results/genus/abund_avg.png") 
 ggsave(fname)
 ```
-# Rank Abundance Curve with size
-This subsets the data to only include the seqs with the highest n_asv relative abundance.
-So, the relative abundance is not the same as the sum for all ASVs per genus.
-This is to be consistent with the data shown in the previous plot.
-
-Do NOT use mean to average here because, when a sample has more than one ASV, 
-then that calculation would average across each different ASV.
-
-```{r rank_abundance_size}
-
 # Subset
+```{r subset_size}
 genus_summary_size <- table_rel_long %>%
   filter(seq %in% seq_names) %>%
   group_by(Genus, size.mm, duplicate.id) %>%
@@ -267,17 +258,34 @@ genus_summary_size <- table_rel_long %>%
     sd_ab = sd(sum_ab)
   ) %>%
   mutate(Genus = factor(Genus, levels = genus_levels)) 
+```
+# Rank Abundance Curve with size
+This subsets the data to only include the seqs with the highest n_asv relative abundance.
+So, the relative abundance is not the same as the sum for all ASVs per genus.
+This is to be consistent with the data shown in the previous plot.
 
+Do NOT use mean to average here because, when a sample has more than one ASV, 
+then that calculation would average across each different ASV.
 
-# Plot  
-ggplot(genus_summary_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor(size.mm))) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+```{r rank_abundance_size}
+
+p <- ggplot(genus_summary_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor(size.mm))) +
+    geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7
+  ) +
   geom_errorbar(
-    aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab),
+    aes(ymin = pmax(mean_ab - sd_ab, 0), ymax = mean_ab + sd_ab),
     width = 0.2,
     position = position_dodge(width = 0.8)
   ) +
-  scale_fill_manual(values=met.brewer("Hiroshige", 6), name = "Size (mm)") +
+  scale_fill_manual(
+    values = met.brewer("Hiroshige", 6),
+    name = "Size (mm)"
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.1))  # Add 10% space above
+  ) +
   labs(
     x = "Genus",
     y = "Mean Relative Abundance [%]",
@@ -285,6 +293,10 @@ ggplot(genus_summary_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor
   ) +
   theme_minimal() +
   coord_flip()
+
+# Save plot
+fname <- "./results/genus/abund_size.png"
+ggsave(fname, plot = p, width = 10, height = 12, dpi = 300)
 
 ```
 
@@ -294,15 +306,18 @@ ggplot(genus_summary_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor
 p <- genus_summary_size %>%
   ggplot(aes(x = Genus, y = mean_ab, fill = size.mm)) +
   geom_bar(stat = "identity", position = "dodge") +  
-  geom_errorbar(aes(x=Genus, ymin=mean_ab-sd_ab, ymax=mean_ab+sd_ab)) + #, 
-                #width=0.4, colour="orange", alpha=0.9, size=1.3)
+  geom_errorbar(
+    aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab),
+    width = 0.2,
+    position = position_dodge(width = 0.8)
+  ) +
   scale_fill_manual(values=met.brewer("Hiroshige", 6)) +
   xlab("Genus") +
   ylab("Relative Abundance [%]") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  coord_flip()
 
 # Save plot
-fname <- "./results/genus/abund_sample.png"
+fname <- "./results/genus/abund_size2.png"
 ggsave(fname, plot = p)
 
 print(p)
