@@ -157,14 +157,18 @@ head(table_rel_long)
 ```
 
 
-# Subsetting and plotting
-We can use a variety of filtering functions from dplyr to manipulate data for more concise plots. For example, we could select specific bacteria to look for, or group all members of the same family or genus together. 
+# Subsetting 
+Here, we define the ASVs we want to filter the data by.
+I subset the data to only include the seqs with the highest n_asv relative abundance.
+So, the genus displayed is not the same as all ASVs that were found in that genus.
 
-Here, we define the genus we want to filter the data by.
+I filter by ASV (seq) instead of genus because some genera have multiple ASVs, 
+some of which are very close to zero. And I only want to include the ASVs with high enough abundance.
+
 We also order it how we want it to be displayed on the x-axis.
 
 ```{r subset_genus}
-n_asv = 25  # number of ASVs to include in the plot 
+n_asv = 15  # number of ASVs to include in the plot 
 
 # Identify top ASVs by mean abundance (excluding NA Genera)
 top_asvs <- table_rel_long %>%
@@ -219,8 +223,6 @@ The bar plot adds up the relative abundance of each ASV.
 NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 ```{r rank_abundance_average}
-
-#fct_rev: puts largest rel_ab at top
 ggplot(genus_avg, aes(x = fct_rev(Genus), y = mean_ab)) +
   geom_col(fill = "steelblue", width = 0.6) +
   geom_errorbar(aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab), 
@@ -229,43 +231,7 @@ ggplot(genus_avg, aes(x = fct_rev(Genus), y = mean_ab)) +
     data = top_asvs,
     aes(x = fct_rev(Genus), y = mean_ab), 
     color = "black",
-    #position = position_jitter(width = 0.2),  # optional: adds slight jitter
     size = 2
-  ) +
-  labs(
-    title = "Genus-Level Relative Abundance (with ASV overlay)",
-    y = "Mean Relative Abundance [%]",
-    x = "Genus"
-  ) +
-  theme_minimal() +
-  coord_flip()
-
-fname = paste("./results/genus/abund_avg.png") 
-ggsave(fname)
-```
-# Rank Abundance Curve with size
-This subsets the data to only include the seqs with the highest n_asv relative abundance.
-So, the relative abundance is not the same as the sum for all ASVs per genus.
-This is to be consistent with the data shown in the previous plot.
-
-Do NOT use mean to average here because, when a sample has more than one ASV, 
-then that calculation would average across each different ASV.
-
-```{r rank_abundance_size}
-
-p <- ggplot(genus_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor(size.mm))) +
-    geom_col(
-    position = position_dodge(width = 0.8),
-    width = 0.7
-  ) +
-  geom_errorbar(
-    aes(ymin = pmax(mean_ab - sd_ab, 0), ymax = mean_ab + sd_ab),
-    width = 0.2,
-    position = position_dodge(width = 0.8)
-  ) +
-  scale_fill_manual(
-    values = met.brewer("Hiroshige", n_sizes),
-    name = "Size (mm)"
   ) +
   scale_y_continuous(
     expand = expansion(mult = c(0, 0.1))  # Add 10% space above
@@ -273,39 +239,47 @@ p <- ggplot(genus_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor(si
   labs(
     x = "Genus",
     y = "Mean Relative Abundance [%]",
-    title = "Genus-Level Abundance by Size Fraction"
   ) +
-  theme_minimal() +
+  theme_minimal(base_size = 16) +
   coord_flip()
 
-# Save plot
-fname <- "./results/genus/abund_size.png"
-ggsave(fname, plot = p, width = 10, height = 12, dpi = 300)
-
+fname = paste("./results/genus/abund_avg.png") 
+ggsave(fname)
 ```
+# Rank Abundance Curve with size
+```{r rank_abundance_size}
+# Number of genus to display by size
+n_display = 3
 
-```{r rank_abundance_size2}
+genus_size2 <- genus_size %>%
+  filter(Genus %in% genus_levels[1:n_display])   
 
-# Plot  
-p <- genus_size %>%
-  ggplot(aes(x = Genus, y = mean_ab, fill = size.mm)) +
-  geom_bar(stat = "identity", position = "dodge") +  
-  geom_errorbar(
-    aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab),
-    width = 0.2,
-    position = position_dodge(width = 0.8)
-  ) +
-  scale_fill_manual(values=met.brewer("Hiroshige", n_sizes)) +
-  xlab("Genus") +
-  ylab("Relative Abundance [%]") +
-  coord_flip()
+p <- ggplot(genus_size2, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) +
+     geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+     geom_errorbar(
+       aes(ymin = pmax(mean_ab - sd_ab, 0), ymax = mean_ab + sd_ab),
+       width = 0.2,
+       position = position_dodge(width = 0.8)
+     ) +
+     scale_fill_manual(
+      values = met.brewer("Hiroshige", n_sizes),
+      name = "Size [mm]"
+     ) +
+     scale_y_continuous(
+       expand = expansion(mult = c(0, 0.1))  # Add 10% space above
+     ) +
+     labs(
+       #title = "Genus-Level Abundance by Size Fraction",
+       x = "Genus",
+       y = "Mean Relative Abundance [%]",
+     ) +
+     theme_minimal(base_size = 16)   # sets text size
 
 # Save plot
 fname <- "./results/genus/abund_size2.png"
-ggsave(fname, plot = p)
+ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
 
 print(p)
-
 ```
 # Single scatter plot
 This summarizes the relative abundance for one genus at a time.
