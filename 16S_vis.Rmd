@@ -52,6 +52,7 @@ ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
 
 # define variables not listed in metadata
 n_replicates = 3   # A, B, C
+n_sizes = length(size_factored)
 
 # EPS data
 pnps <- read_excel("./data/PNPS_conc.xlsx")
@@ -263,7 +264,7 @@ p <- ggplot(genus_size, aes(x = fct_rev(Genus), y = mean_ab, fill = as.factor(si
     position = position_dodge(width = 0.8)
   ) +
   scale_fill_manual(
-    values = met.brewer("Hiroshige", 6),
+    values = met.brewer("Hiroshige", n_sizes),
     name = "Size (mm)"
   ) +
   scale_y_continuous(
@@ -294,7 +295,7 @@ p <- genus_size %>%
     width = 0.2,
     position = position_dodge(width = 0.8)
   ) +
-  scale_fill_manual(values=met.brewer("Hiroshige", 6)) +
+  scale_fill_manual(values=met.brewer("Hiroshige", n_sizes)) +
   xlab("Genus") +
   ylab("Relative Abundance [%]") +
   coord_flip()
@@ -387,7 +388,7 @@ print(p)
 tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 
 ```{r ordination-nmds}
-cols <- met.brewer("Hiroshige", 6) 
+cols <- met.brewer("Hiroshige", n_sizes) 
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
@@ -447,6 +448,7 @@ group_names = metadata$size.mm
 inv = multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
 summary(inv)
 ```
+
 
 
 
