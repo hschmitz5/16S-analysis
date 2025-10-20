@@ -23,7 +23,8 @@ dplyr cheat sheet: https://github.com/rstudio/cheatsheets/blob/main/data-transfo
 library(qiime2R)
 library(phyloseq)
 library(tidyverse)
-library(vegan)
+#library(vegan)
+library(picante)  # for Faith's phylogenetic diversity
 library(indicspecies)  # for indicator species analysis
 library(readxl)
 library(writexl)
@@ -118,6 +119,8 @@ table_rel <- as.data.frame(ps_rel@otu_table) %>%
   rownames_to_column(var = "seq")
 
 head(table_rel)
+
+table_count <- t(as.data.frame(ps_filt@otu_table))
 
 ``` 
 # Data Manipulation: Combine into wide dataframe
@@ -223,28 +226,59 @@ The bar plot adds up the relative abundance of each ASV.
 NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 ```{r rank_abundance_average}
-ggplot(genus_avg, aes(x = fct_rev(Genus), y = mean_ab)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_errorbar(aes(ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab), 
-                width = 0.2, color = "black") +
+ggplot() +
+  # Bars (Sum of ASVs)
+  geom_col(
+    data = genus_avg,
+    aes(x = fct_rev(Genus), y = mean_ab, fill = "Sum of ASVs"),
+    width = 0.6,
+    show.legend = TRUE
+  ) +
+  # Error bars
+  geom_errorbar(
+    data = genus_avg,
+    aes(x = fct_rev(Genus), ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab),
+    width = 0.2,
+    color = "black"
+  ) +
+  # Points (Individual ASVs)
   geom_point(
     data = top_asvs,
-    aes(x = fct_rev(Genus), y = mean_ab), 
+    aes(x = fct_rev(Genus), y = mean_ab, shape = "Individual ASVs"),
     color = "black",
-    size = 2
+    size = 2,
+    show.legend = TRUE
   ) +
   scale_y_continuous(
-    expand = expansion(mult = c(0, 0.1))  # Add 10% space above
+    expand = expansion(mult = c(0, 0.1))
   ) +
   labs(
+    title = paste("Top", n_asv, "most abundant ASVs"),
     x = "Genus",
     y = "Mean Relative Abundance [%]",
+    fill = "",
+    shape = ""
+  ) +
+  scale_fill_manual(
+    values = c("Sum of ASVs" = "steelblue"),
+    breaks = c("Sum of ASVs")
+  ) +
+  scale_shape_manual(
+    values = c("Individual ASVs" = 16),
+    breaks = c("Individual ASVs")
+  ) +
+  guides(
+    shape = guide_legend(order = 1, override.aes = list(fill = NA)),
+    fill = guide_legend(order = 2, override.aes = list(shape = NA))
   ) +
   theme_minimal(base_size = 16) +
+  theme(
+    legend.spacing.y = unit(0.2, "lines"),
+    legend.margin = margin(2, 2, 2, 2)
+  ) +
   coord_flip()
-
-fname = paste("./results/genus/abund_avg.png") 
-ggsave(fname)
+fname = "./results/genus/abund_avg.png"
+ggsave(fname, width = 8, height = 4, dpi = 300)
 ```
 # Rank Abundance Curve with size
 ```{r rank_abundance_size}
@@ -269,7 +303,7 @@ p <- ggplot(genus_size2, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm)))
        expand = expansion(mult = c(0, 0.1))  # Add 10% space above
      ) +
      labs(
-       #title = "Genus-Level Abundance by Size Fraction",
+       title = paste0("Genera = ", n_display, " (ASVs = ", n_asv,")"),  #paste0: no spaces
        x = "Genus",
        y = "Mean Relative Abundance [%]",
      ) +
@@ -286,15 +320,12 @@ This summarizes the relative abundance for one genus at a time.
 It shows the variation from the biological replicates.
 
 ```{r plot_scatter_single}
-for (i in 1:length(genus_names)) {
-  
-  gs <- if (is.na(genus_names[i])) {
-    filter(table_rel_long, is.na(Genus), seq %in% fct_seq_levels)
-  } else {
-    filter(table_rel_long, Genus %in% genus_names[i], seq %in% fct_seq_levels)
-  }
-  
-  gs %>%  
+#for (i in 1:length(genus_names)) {
+i <- 2
+
+gs <- table_rel_long %>%
+  filter(Genus %in% genus_names[i], seq %in% seq_names)
+  gs %>%
     ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) +
     geom_point(
       shape = 21,
@@ -302,20 +333,23 @@ for (i in 1:length(genus_names)) {
       size = 3,
       stroke = 1
     ) +
-    labs(title = genus_names[i]) +
-    xlab("Sieve Range [mm]") +
-    ylab("Relative Abundance [%]")  
+    labs(
+       title = genus_names[i],
+       x = "Sieve Range [mm]",
+       y = "Relative Abundance [%]",
+     ) +
+    theme_minimal(base_size = 14)   # sets text size
   
-  fname = paste("./results/genus/genus_",genus_names[i], ".png", sep = "") 
-  ggsave(fname)
-}
+  fname = paste0("./results/genus/genus_",genus_names[i], ".png")
+  ggsave(fname, width = 9, height = 4, dpi = 300)
+#}
 ```
 # Multiple subplots
 This combines multiple genera in subplots
 ```{r plot_scatter_multiple}
 
 gs.group_plot <- table_rel_long %>%
-  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), seq %in% fct_seq_levels)
+  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), seq %in% seq_names)
 
 ### plot
 gs.group_plot %>%
@@ -338,26 +372,44 @@ ggsave("./results/genus_group.png")
 ```{r diversity_plot}
 div_type = c("Shannon")
 
-# Base plot (no fill here)
-p <- plot_richness(
-  ps_filt, 
-  x = "size.mm", 
-  measures = div_type
-)
-
-# Add custom axis labels and theme
-p <- p +
-  xlab("Sieve Range [mm]") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
+p <- plot_richness(ps_filt, x = "size.mm", measures = div_type) +
+  geom_point(size=2) +
+  labs(
+    title = div_type,
+    x = "Sieve Range [mm]"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(strip.text = element_blank()) # removes default title
+  #theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
 
 # Save the plot
 filename <- paste0("./results/diversity/diversity_", div_type, ".png")
-ggsave(filename, plot = p)
-
+ggsave(filename, plot = p, width = 6, height = 4, dpi = 300)
 print(p)
 
 ```
+# Faith's Phylogenetic Diversity Index
+```{r diversity_Faith}
+phy = ps_filt@phy_tree
+pd_results <- pd(table_count, phy) %>%
+  rownames_to_column(var = "sample") %>%
+  left_join(metadata, join_by(sample))
+head(pd_results)
 
+# plot
+pd_results %>%
+    ggplot(aes(x = size.mm, y = PD)) +
+    geom_point(size = 2) +
+    labs(
+      title = "Faith's phylogenetic diversity index",
+      x = "Sieve Range [mm]",
+      y = "Alpha Diversity Measure",
+    ) +
+    theme_minimal(base_size = 14)   # sets text size
+
+filename <- paste0("./results/diversity/diversity_Faith.png")
+ggsave(filename, width = 6, height = 4, dpi = 300)
+```
 # Ordination - NMDS
 tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 
