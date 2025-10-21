@@ -158,8 +158,6 @@ table_rel_long <- table_rel %>%
 head(table_rel_long)
 
 ```
-
-
 # Subsetting 
 Here, we define the ASVs we want to filter the data by.
 I subset the data to only include the seqs with the highest n_asv relative abundance.
@@ -390,7 +388,7 @@ print(p)
 ```
 # Faith's Phylogenetic Diversity Index
 ```{r diversity_Faith}
-phy = ps_filt@phy_tree
+phy <- ps_filt@phy_tree
 pd_results <- pd(table_count, phy) %>%
   rownames_to_column(var = "sample") %>%
   left_join(metadata, join_by(sample))
@@ -417,7 +415,7 @@ tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
 cols <- met.brewer("Hiroshige", n_sizes) 
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
-p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
+p1 <- plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
                      scale_color_manual(values=cols)  +
                      labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
@@ -430,7 +428,7 @@ ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 # Ordination - PCoA
 ```{r ordination-pcoa}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
-p1 = plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
+p1 <- plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
                      scale_color_manual(values=cols) + 
                      labs(color = "Size (mm)")
 # seperate the plots so they aren't overlayed
@@ -464,14 +462,14 @@ plot(ps_filt.ano,
 dev.off()
 ```
 ```{r plot_species}
-seq_names = table_rel[,1]    # define the sequence names
-table_rel2 = table_rel[,-1]  # removes the sequence names from the matrix
+seq_names <- table_rel[,1]    # define the sequence names
+table_rel2 <- table_rel[,-1]  # removes the sequence names from the matrix
 rownames(table_rel2) <- seq_names # label the rows with the sequences
-table_rel2 = t(table_rel2)   # transpose
+table_rel2 <- t(table_rel2)   # transpose
 
-group_names = metadata$size.mm
+group_names <- metadata$size.mm
 
-inv = multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
+inv <- multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
 summary(inv)
 ```
 
