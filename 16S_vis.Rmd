@@ -23,7 +23,7 @@ dplyr cheat sheet: https://github.com/rstudio/cheatsheets/blob/main/data-transfo
 library(qiime2R)
 library(phyloseq)
 library(tidyverse)
-#library(vegan)
+library(ALDEx2)
 library(picante)  # for Faith's phylogenetic diversity
 library(indicspecies)  # for indicator species analysis
 library(readxl)
@@ -31,12 +31,18 @@ library(writexl)
 
 # optional
 library(MetBrewer) # fun color palettes
+#library(vegan)
 ```
 
 # Read in data
 I read in the QIIME artifacts as a phyloseq object. Phyloseq is an R package that has many convenient functions built in for manipulating and analyzing microbiome data. We will use the qiime2R package to import the QIIME data directly into a phyloseq object. 
 
 ```{r load_data}
+
+# define variables not listed in metadata
+size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
+n_sizes       = length(size_factored)
+n_replicates  = 3   # A, B, C
 
 getwd() 
 
@@ -46,27 +52,20 @@ ps <- qiime2R::qza_to_phyloseq(
   taxonomy="./data/taxonomy.qza",
   metadata = "./data/sample-metadata.tsv" 
 )
-
 # factor the size metadata
-size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
-
-# define variables not listed in metadata
-n_replicates = 3   # A, B, C
-n_sizes = length(size_factored)
 
 # EPS data
 pnps <- read_excel("./data/PNPS_conc.xlsx")
 pnps.lb <- pnps[,2:5]
 pnps.tb <- pnps[,c(2,6:8)]
-
 ```
-
 # Basic filtering and parsing
 I will do a bit of manipulation using phyloseq functions, then we will use the suite of tidyverse packages to do more data manipulation. 
 Let's start with getting relative abundance data.
 
 ```{r apply_filt}
+
 # remove Mitochondria and Chloroplasts (removes Eukaryotes)
 ps_filt0 <- phyloseq::subset_taxa(ps, ! Family %in% c("Mitochondria", "Chloroplast"))
 
@@ -81,7 +80,6 @@ ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
 #ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
   #rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
  
-
 # Remove taxa not seen more than 3 times in at least 20% of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
 #ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
@@ -95,7 +93,6 @@ print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
 #print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
 ```
-
 # Format as data frames
 
 This chunk saves the taxonomy, metadata, and count tables as data frames. In these tables, each row is a unique ASV. 
@@ -109,19 +106,23 @@ taxonomy <- as.data.frame(ps_rel@tax_table) %>%
 head(taxonomy)
 
 metadata <- as.data.frame(as.matrix(ps_rel@sam_data)) %>% 
-  rownames_to_column(var = "sample")
+  rownames_to_column(var = "sample") 
 # factor the size metadata
 metadata$size.mm <- factor(metadata$size.mm, levels = size_factored)
 
 head(metadata)
 
+# relative abundance
 table_rel <- as.data.frame(ps_rel@otu_table) %>% 
   rownames_to_column(var = "seq")
 
 head(table_rel)
 
-table_count <- t(as.data.frame(ps_filt@otu_table))
+# absolute count 
+table_abs <- as.data.frame(ps_filt@otu_table) %>%
+  rownames_to_column(var = "seq")
 
+head(table_abs)
 ``` 
 # Data Manipulation: Combine into wide dataframe
 
@@ -169,7 +170,7 @@ some of which are very close to zero. And I only want to include the ASVs with h
 We also order it how we want it to be displayed on the x-axis.
 
 ```{r subset_genus}
-n_asv = 15  # number of ASVs to include in the plot 
+n_asv = 30  # number of ASVs to include in the plot 
 
 # Identify top ASVs by mean abundance (excluding NA Genera)
 top_asvs <- table_rel_long %>%
@@ -216,6 +217,101 @@ genus_size <- genus_sum %>%
 genus_names <- genus_avg$Genus 
 seq_names <- top_asvs$seq
 ```
+# Define Size Indices
+The following differential abundance analysis is going to do pairwise comparison of sizes.
+There are six sizes of samples. 6 sizes, comparing 2 size classes at a time, creates 15 combinations.
+I define the indices of these combinations here.
+
+```{r define_pairs}
+size_classes <- as.character(unique(metadata$size.mm))
+
+# Get start and end indices for each class
+group_indices <- lapply(0:(n_sizes - 1), function(i) {
+  start <- i * n_replicates + 1
+  end <- start + n_replicates - 1
+  start:end
+})
+names(group_indices) <- size_classes 
+
+# Generate pairwise combinations of size classes
+size_pairs <- combn(size_classes, 2, simplify = FALSE)
+
+# Get sample indices for each pair
+pairwise_indices <- lapply(size_pairs, function(pair) {
+  indices1 <- group_indices[[as.character(pair[1])]]
+  indices2 <- group_indices[[as.character(pair[2])]]
+  list(
+    size_class_pair = pair,
+    indices = c(indices1, indices2)
+  )
+})
+
+```
+
+# Differential Abundance
+
+```{r diff_ab}
+
+# filter only top n_asv sequences
+abs_filt <- table_abs %>%
+  filter(seq %in% seq_names) 
+  
+# make the first column the new row names
+if (is.character(abs_filt[[1]])) {
+  rownames(abs_filt) <- abs_filt[[1]]  # Set row names using the first column
+  abs_filt <- abs_filt[, -1]           # Remove the first column
+}
+
+# convert from factor to character
+conds <- as.character(metadata$size.mm)
+
+# Subset for 2 conditions
+#table_f_d1 <- abs_filt[,1:6]
+#cond_f_d1 <- conds[1:6]
+
+
+results_list <- list()
+
+pair <- pairwise_indices[[1]]
+#for (pair in pairwise_indices) {
+  # Subset samples for the current pair
+  pair_samples <- which(conds %in% pair)
+  
+  table_sub <- abs_filt[, pair_samples]
+  cond_sub <- conds[pair_samples]
+  
+  # Run ALDEx2
+  x.aldex <- aldex(table_sub, cond_sub, denom = "all", test = "t", effect = TRUE)
+  
+  # Identify significant features
+  sig_feats <- rownames(x.aldex[x.aldex$we.eBH < 0.05 & abs(x.aldex$effect) > 1, ])
+  
+  if (length(sig_feats) == 0) next  # Skip if no sig features
+  
+  # Save for review
+  results_list[[paste(pair, collapse = "_vs_")]] <- list(
+    aldex = x.aldex,
+    sig_features = sig_feats,
+    samples = pair_samples,
+    groups = pair
+  )
+#}
+
+#x.aldex <- aldex(table_f_d1, cond_f_d1, denom = "all", test = "t", effect = TRUE) # t-test
+
+#sig_features <- x.aldex[x.aldex$we.eBH < 0.05, ]
+##sig_features2 <- x.aldex[x.aldex$we.eBH < 0.05 & abs(x.aldex$effect) > 1, ]
+
+# note default is FDR of 0.05
+#par(mfrow=c(1,3))
+#aldex.plot(x.aldex, type="MA", test="welch", xlab="Log-ratio abundance",
+ #   ylab="Difference", main='Bland-Altman plot')
+#aldex.plot(x.aldex, type="MW", test="welch", xlab="Dispersion",
+ #   ylab="Difference", main='Effect plot')
+#aldex.plot(x.aldex, type="volcano", test="welch", xlab="Difference",
+ #   ylab="-1(log10(q))", main='Volcano plot') 
+```
+
 # Rank Abundance Curve (collapses size)
 This shows the genera that have the highest relative abundance, averaged for all samples.
 The scatter plot shows the different ASVs that make up each genus.
@@ -388,8 +484,10 @@ print(p)
 ```
 # Faith's Phylogenetic Diversity Index
 ```{r diversity_Faith}
+comm <- t(table_abs) # transpose 
 phy <- ps_filt@phy_tree
-pd_results <- pd(table_count, phy) %>%
+
+pd_results <- pd(comm, phy) %>%
   rownames_to_column(var = "sample") %>%
   left_join(metadata, join_by(sample))
 head(pd_results)
@@ -416,10 +514,9 @@ cols <- met.brewer("Hiroshige", n_sizes)
 
 ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 p1 <- plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
-                     scale_color_manual(values=cols)  +
-                     labs(color = "Size (mm)")
-# seperate the plots so they aren't overlayed
-#p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+  scale_color_manual(values=cols)  +
+  labs(color = "Size [mm]") +
+  theme_minimal(base_size = 14)   # sets text size
   
 print(p1)
 
@@ -429,10 +526,9 @@ ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
 ```{r ordination-pcoa}
 ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
 p1 <- plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
-                     scale_color_manual(values=cols) + 
-                     labs(color = "Size (mm)")
-# seperate the plots so they aren't overlayed
-#p1 = p1 + facet_wrap(~size.mm, 2)  # 2 is the number of rows
+  scale_color_manual(values=cols) + 
+  labs(color = "Size [mm]") +
+  theme_minimal(base_size = 14)   # sets text size
 
 print(p1)
 ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
