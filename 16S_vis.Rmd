@@ -75,14 +75,14 @@ ps_filt0 <- phyloseq::subset_taxa(ps, Kingdom != "Unassigned")
 # define minimum depth to rarefy
 rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
-ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
-  rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
-#ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
+#ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
   #rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
+  rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
  
-# Remove taxa not seen more than 3 times in at least 20% of the samples. 
+# Remove taxa not seen more than 3 times (reads) in at least 20% of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
-#ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) >= ((1/6)*length(x)), TRUE)
 
 # relative abundance
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %
@@ -90,7 +90,7 @@ ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  
 
 # Show how much data was filtered out
 print(paste("Number of ASVs originally:", ntaxa(ps))) # how many ASVs are there?
-#print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
+print(paste("Number of ASVs after rarefaction:", ntaxa(ps_filt_r)))
 print(paste("Number of ASVs after filtering:", ntaxa(ps_filt)))
 ```
 # Format as data frames
@@ -119,8 +119,8 @@ table_rel <- as.data.frame(ps_rel@otu_table) %>%
 head(table_rel)
 
 # absolute count 
-table_abs <- as.data.frame(ps_filt@otu_table) %>%
-  rownames_to_column(var = "seq")
+table_abs <- as.data.frame(ps_filt@otu_table) #%>%
+  #rownames_to_column(var = "seq")
 
 head(table_abs)
 ``` 
@@ -217,99 +217,26 @@ genus_size <- genus_sum %>%
 genus_names <- genus_avg$Genus 
 seq_names <- top_asvs$seq
 ```
-# Define Size Indices
-The following differential abundance analysis is going to do pairwise comparison of sizes.
-There are six sizes of samples. 6 sizes, comparing 2 size classes at a time, creates 15 combinations.
-I define the indices of these combinations here.
 
-```{r define_pairs}
-size_classes <- as.character(unique(metadata$size.mm))
+# Differential Abundance Analysis
+This takes a while to run. That's why I save it after running. 
+```{r diff_ab2}
+reads <- table_abs
+conds<- as.character(metadata$size.mm)
 
-# Get start and end indices for each class
-group_indices <- lapply(0:(n_sizes - 1), function(i) {
-  start <- i * n_replicates + 1
-  end <- start + n_replicates - 1
-  start:end
-})
-names(group_indices) <- size_classes 
-
-# Generate pairwise combinations of size classes
-size_pairs <- combn(size_classes, 2, simplify = FALSE)
-
-# Get sample indices for each pair
-pairwise_indices <- lapply(size_pairs, function(pair) {
-  indices1 <- group_indices[[as.character(pair[1])]]
-  indices2 <- group_indices[[as.character(pair[2])]]
-  list(
-    size_class_pair = pair,
-    indices = c(indices1, indices2)
-  )
-})
-
-```
-
-# Differential Abundance
-
-```{r diff_ab}
-
-# filter only top n_asv sequences
-abs_filt <- table_abs %>%
-  filter(seq %in% seq_names) 
-  
-# make the first column the new row names
-if (is.character(abs_filt[[1]])) {
-  rownames(abs_filt) <- abs_filt[[1]]  # Set row names using the first column
-  abs_filt <- abs_filt[, -1]           # Remove the first column
+if (file.exists("aldex_clr_result.rds")) {
+  x <- readRDS("aldex_clr_result.rds")
+  kw.test <- readRDS("aldex_kw_result.rds")
+} else {
+  x <- aldex.clr(reads, conds, mc.samples=128, denom="all")
+  kw.test <- aldex.kw(x)
+   
+  saveRDS(x, file = "aldex_clr_result.rds")
+  saveRDS(kw.test, file = "aldex_kw_result.rds")
 }
 
-# convert from factor to character
-conds <- as.character(metadata$size.mm)
+sig_features <- kw.test[kw.test$kw.eBH < 0.05, ]
 
-# Subset for 2 conditions
-#table_f_d1 <- abs_filt[,1:6]
-#cond_f_d1 <- conds[1:6]
-
-
-results_list <- list()
-
-pair <- pairwise_indices[[1]]
-#for (pair in pairwise_indices) {
-  # Subset samples for the current pair
-  pair_samples <- which(conds %in% pair)
-  
-  table_sub <- abs_filt[, pair_samples]
-  cond_sub <- conds[pair_samples]
-  
-  # Run ALDEx2
-  x.aldex <- aldex(table_sub, cond_sub, denom = "all", test = "t", effect = TRUE)
-  
-  # Identify significant features
-  sig_feats <- rownames(x.aldex[x.aldex$we.eBH < 0.05 & abs(x.aldex$effect) > 1, ])
-  
-  if (length(sig_feats) == 0) next  # Skip if no sig features
-  
-  # Save for review
-  results_list[[paste(pair, collapse = "_vs_")]] <- list(
-    aldex = x.aldex,
-    sig_features = sig_feats,
-    samples = pair_samples,
-    groups = pair
-  )
-#}
-
-#x.aldex <- aldex(table_f_d1, cond_f_d1, denom = "all", test = "t", effect = TRUE) # t-test
-
-#sig_features <- x.aldex[x.aldex$we.eBH < 0.05, ]
-##sig_features2 <- x.aldex[x.aldex$we.eBH < 0.05 & abs(x.aldex$effect) > 1, ]
-
-# note default is FDR of 0.05
-#par(mfrow=c(1,3))
-#aldex.plot(x.aldex, type="MA", test="welch", xlab="Log-ratio abundance",
- #   ylab="Difference", main='Bland-Altman plot')
-#aldex.plot(x.aldex, type="MW", test="welch", xlab="Dispersion",
- #   ylab="Difference", main='Effect plot')
-#aldex.plot(x.aldex, type="volcano", test="welch", xlab="Difference",
- #   ylab="-1(log10(q))", main='Volcano plot') 
 ```
 
 # Rank Abundance Curve (collapses size)
