@@ -23,6 +23,7 @@ dplyr cheat sheet: https://github.com/rstudio/cheatsheets/blob/main/data-transfo
 library(qiime2R)
 library(phyloseq)
 library(tidyverse)
+library(ANCOMBC)
 library(ALDEx2)
 library(picante)  # for Faith's phylogenetic diversity
 library(indicspecies)  # for indicator species analysis
@@ -53,7 +54,7 @@ ps <- qiime2R::qza_to_phyloseq(
   metadata = "./data/sample-metadata.tsv" 
 )
 # factor the size metadata
-ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored)
+ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored, ordered = TRUE)
 
 # EPS data
 pnps <- read_excel("./data/PNPS_conc.xlsx")
@@ -108,7 +109,7 @@ head(taxonomy)
 metadata <- as.data.frame(as.matrix(ps_rel@sam_data)) %>% 
   rownames_to_column(var = "sample") 
 # factor the size metadata
-metadata$size.mm <- factor(metadata$size.mm, levels = size_factored)
+metadata$size.mm <- factor(metadata$size.mm, levels = size_factored, ordered = TRUE)
 
 head(metadata)
 
@@ -218,9 +219,9 @@ genus_names <- genus_avg$Genus
 seq_names <- top_asvs$seq
 ```
 
-# Differential Abundance Analysis
+# Differential Abundance Analysis - ALDEx2
 This takes a while to run. That's why I save it after running. 
-```{r diff_ab2}
+```{r diff_ab}
 reads <- table_abs
 conds<- as.character(metadata$size.mm)
 
@@ -239,6 +240,28 @@ sig_features <- kw.test[kw.test$kw.eBH < 0.05, ]
 
 ```
 
+# Differential Abundance Analysis - ANCOM-BC2
+```{r diff_ab_ancom2}
+reads <- table_abs
+# make sample column row names
+smd <- metadata               # make a copy
+rownames(smd) <- smd$sample
+smd$sample <- NULL            # remove the now-redundant column
+
+output <- ancombc2(
+  data = reads, 
+  meta_data = smd,
+  fix_formula = "size.mm",     # categorical factor for size classes
+  rand_formula = NULL,         # independent samples
+  group = "size.mm",
+  struc_zero = TRUE,           # detect structural zeros
+  neg_lb = TRUE,               # negative lower bound correction
+  global = TRUE,               # overall test across all 6 groups
+  trend = FALSE,                ## optional, if you think size classes are ordered (make size #)
+  p_adj_method = "holm",       # multiple-testing correction
+  alpha = 0.05
+)
+```
 # Rank Abundance Curve (collapses size)
 This shows the genera that have the highest relative abundance, averaged for all samples.
 The scatter plot shows the different ASVs that make up each genus.
