@@ -10,15 +10,16 @@ output:
     toc_float: yes
 ---
 
-# To clear environment
-rm(list = ls())
-
 # Set up packages
 dplyr -- for data manipulation -- is installed
 The pipe operator %>% comes from the dplyr packages. (part of tidyverse)
 dplyr cheat sheet: https://github.com/rstudio/cheatsheets/blob/main/data-transformation.pdf
 
 ```{r load_packages, message=FALSE, warning=FALSE}
+
+# To clear environment
+rm(list = ls())
+
 # required
 library(qiime2R)
 library(phyloseq)
@@ -33,19 +34,18 @@ library(writexl)
 # optional
 library(MetBrewer) # fun color palettes
 #library(vegan)
+
+# define variables not listed in metadata
+size_factored <- c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
+n_sizes       <- length(size_factored)
+n_replicates  <- 3    # A, B, C
+n_asv         <- 300  # number of ASVs to include in the plot 
 ```
 
 # Read in data
 I read in the QIIME artifacts as a phyloseq object. Phyloseq is an R package that has many convenient functions built in for manipulating and analyzing microbiome data. We will use the qiime2R package to import the QIIME data directly into a phyloseq object. 
 
 ```{r load_data}
-
-# define variables not listed in metadata
-size_factored = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
-n_sizes       = length(size_factored)
-n_replicates  = 3   # A, B, C
-
-getwd() 
 
 ps <- qiime2R::qza_to_phyloseq(
   features="./data/table_dada2.qza",
@@ -69,7 +69,6 @@ Let's start with getting relative abundance data.
 
 # remove Mitochondria and Chloroplasts (removes Eukaryotes)
 ps_filt0 <- phyloseq::subset_taxa(ps, ! Family %in% c("Mitochondria", "Chloroplast"))
-
 # remove unclassified sequences
 ps_filt0 <- phyloseq::subset_taxa(ps, Kingdom != "Unassigned")
 
@@ -78,10 +77,11 @@ rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 # apply rarefaction
 #ps_filt <-rarefy_even_depth(ps_filt0, rarefy_level,
   #rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
-ps_filt_r <-rarefy_even_depth(ps_filt0, rarefy_level,
-  rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+ps_filt_r <-rarefy_even_depth(
+  ps_filt0, rarefy_level, rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE
+  )
  
-# Remove taxa not seen more than 3 times (reads) in at least 20% of the samples. 
+# Remove taxa not seen more than 3 times (reads) in at least 1/6 of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
 ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) >= ((1/6)*length(x)), TRUE)
 
@@ -113,17 +113,18 @@ metadata$size.mm <- factor(metadata$size.mm, levels = size_factored, ordered = T
 
 head(metadata)
 
+# absolute count 
+table_abs <- as.data.frame(ps_filt@otu_table) %>%
+  rownames_to_column(var = "seq")
+
+head(table_abs)
+
 # relative abundance
 table_rel <- as.data.frame(ps_rel@otu_table) %>% 
   rownames_to_column(var = "seq")
 
 head(table_rel)
 
-# absolute count 
-table_abs <- as.data.frame(ps_filt@otu_table) #%>%
-  #rownames_to_column(var = "seq")
-
-head(table_abs)
 ``` 
 # Data Manipulation: Combine into wide dataframe
 
@@ -171,7 +172,6 @@ some of which are very close to zero. And I only want to include the ASVs with h
 We also order it how we want it to be displayed on the x-axis.
 
 ```{r subset_genus}
-n_asv = 30  # number of ASVs to include in the plot 
 
 # Identify top ASVs by mean abundance (excluding NA Genera)
 top_asvs <- table_rel_long %>%
@@ -242,14 +242,22 @@ sig_features <- kw.test[kw.test$kw.eBH < 0.05, ]
 
 # Differential Abundance Analysis - ANCOM-BC2
 ```{r diff_ab_ancom2}
-reads <- table_abs
+reads <- table_abs 
+
+reads_top <- reads %>%
+  filter(seq %in% seq_names) 
+
+# convert first column to row names
+rownames(reads_top) <- reads_top$seq
+reads_top <- reads_top[, -1]
+
 # make sample column row names
 smd <- metadata               # make a copy
 rownames(smd) <- smd$sample
 smd$sample <- NULL            # remove the now-redundant column
 
 output <- ancombc2(
-  data = reads, 
+  data = reads_top, 
   meta_data = smd,
   fix_formula = "size.mm",     # categorical factor for size classes
   rand_formula = NULL,         # independent samples
@@ -261,6 +269,49 @@ output <- ancombc2(
   p_adj_method = "holm",       # multiple-testing correction
   alpha = 0.05
 )
+
+saveRDS(output, file = "./results/ancombc2_output_300.rds")
+```
+```{r ancom2_process}
+res_prim = output$res
+
+#df_size = res_prim %>%
+    #dplyr::select(taxon, contains("size.mm"))
+
+sig_global <- output$res_global %>%
+  filter(diff_robust_abn) %>%    # use robust results (recommended)
+  arrange(q_val) %>%
+  rename(seq = taxon,)
+
+head(sig_global)
+
+sig_t <- sig_global %>%
+  left_join(taxonomy, join_by(seq)) %>%
+  group_by(Genus, seq, q_val, W) %>%
+  summarise(.groups = "drop") %>%
+  arrange(q_val)
+
+#####
+library(tidyr)
+
+lfc_long <- res_prim %>%
+  dplyr::select(taxon, dplyr::starts_with("lfc_size.mm")) %>%
+  pivot_longer(
+    cols = -taxon,
+    names_to = "contrast",
+    values_to = "lfc"
+  ) %>%
+  mutate(contrast = gsub("lfc_size.mm.", "", contrast))
+
+ggplot(lfc_long, aes(x = contrast, y = lfc, group = taxon, color = taxon)) +
+  geom_line(alpha = 0.5) +
+  theme_bw() +
+  labs(
+    x = "Contrast (trend component)",
+    y = "Log fold-change",
+    title = "Degree and shape of differential abundance across size classes"
+  )
+
 ```
 # Rank Abundance Curve (collapses size)
 This shows the genera that have the highest relative abundance, averaged for all samples.

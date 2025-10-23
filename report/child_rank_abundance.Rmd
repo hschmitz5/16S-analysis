@@ -1,0 +1,106 @@
+---
+title: "child_rank_abundance"
+output: html_document
+date: "2025-10-23"
+---
+
+# Rank Abundance Curve (collapses size)
+This shows the genera that have the highest relative abundance, averaged for all samples.
+The scatter plot shows the different ASVs that make up each genus.
+Most genera are only one ASV, and some are composed of several. 
+The bar plot adds up the relative abundance of each ASV.
+NA are samples for which the genus was not identified.
+This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
+```{r rank_abundance_average}
+
+cat("Child document is running!")
+
+ggplot() +
+  # Bars (Sum of ASVs)
+  geom_col(
+    data = genus_avg,
+    aes(x = fct_rev(Genus), y = mean_ab, fill = "Sum of ASVs"),
+    width = 0.6,
+    show.legend = TRUE
+  ) +
+  # Error bars
+  geom_errorbar(
+    data = genus_avg,
+    aes(x = fct_rev(Genus), ymin = mean_ab - sd_ab, ymax = mean_ab + sd_ab),
+    width = 0.2,
+    color = "black"
+  ) +
+  # Points (Individual ASVs)
+  geom_point(
+    data = top_asvs,
+    aes(x = fct_rev(Genus), y = mean_ab, shape = "Individual ASVs"),
+    color = "black",
+    size = 2,
+    show.legend = TRUE
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.1))
+  ) +
+  labs(
+    title = paste("Top", n_asv, "most abundant ASVs"),
+    x = "Genus",
+    y = "Mean Relative Abundance [%]",
+    fill = "",
+    shape = ""
+  ) +
+  scale_fill_manual(
+    values = c("Sum of ASVs" = "steelblue"),
+    breaks = c("Sum of ASVs")
+  ) +
+  scale_shape_manual(
+    values = c("Individual ASVs" = 16),
+    breaks = c("Individual ASVs")
+  ) +
+  guides(
+    shape = guide_legend(order = 1, override.aes = list(fill = NA)),
+    fill = guide_legend(order = 2, override.aes = list(shape = NA))
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    legend.spacing.y = unit(0.2, "lines"),
+    legend.margin = margin(2, 2, 2, 2)
+  ) +
+  coord_flip()
+fname = "../results/genus/abund_avg.png"
+ggsave(fname, width = 8, height = 4, dpi = 300)
+```
+# Rank Abundance Curve with size
+```{r rank_abundance_size}
+# Number of genus to display by size
+n_display = 3
+
+genus_size2 <- genus_size %>%
+  filter(Genus %in% genus_levels[1:n_display])   
+
+p <- ggplot(genus_size2, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) +
+     geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+     geom_errorbar(
+       aes(ymin = pmax(mean_ab - sd_ab, 0), ymax = mean_ab + sd_ab),
+       width = 0.2,
+       position = position_dodge(width = 0.8)
+     ) +
+     scale_fill_manual(
+      values = met.brewer("Hiroshige", n_sizes),
+      name = "Size [mm]"
+     ) +
+     scale_y_continuous(
+       expand = expansion(mult = c(0, 0.1))  # Add 10% space above
+     ) +
+     labs(
+       title = paste0("Genera = ", n_display, " (ASVs = ", n_asv,")"),  #paste0: no spaces
+       x = "Genus",
+       y = "Mean Relative Abundance [%]",
+     ) +
+     theme_minimal(base_size = 16)   # sets text size
+
+# Save plot
+fname <- "../results/genus/abund_size2.png"
+ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
+
+print(p)
+```
