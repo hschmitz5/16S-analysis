@@ -1,0 +1,40 @@
+---
+title: "child_ANOSIM"
+output: html_document
+date: "2025-10-24"
+---
+
+# Distance
+What is the difference between weighted and unweighted unifrac
+
+```{r calculate_distance}
+ps_filt.dist <- distance(ps_filt, method = "wunifrac" ) # weighted
+show(ps_filt.dist)
+```
+R statistic ranges from -1 to 1. 0 is random. 
+```{r plot_anosim}
+ps_filt.ano <- anosim(ps_filt.dist, metadata$size.mm, permutations = 9999)
+summary(ps_filt.ano)
+
+# Open a PNG device
+png("./results/anosim_plot.png", width = 800, height = 600)
+
+# Plot the ANOSIM result
+plot(ps_filt.ano,
+     xlab = "Size [mm]",
+     ylab = "Dissimilarity Ranks")
+
+# Close the device to save the file
+dev.off()
+```
+```{r plot_species}
+seq_names <- table_rel[,1]    # define the sequence names
+table_rel2 <- table_rel[,-1]  # removes the sequence names from the matrix
+rownames(table_rel2) <- seq_names # label the rows with the sequences
+table_rel2 <- t(table_rel2)   # transpose
+
+group_names <- metadata$size.mm
+
+inv <- multipatt(table_rel2, group_names, func = "r.g", control = how(nperm=9999))
+summary(inv)
+```

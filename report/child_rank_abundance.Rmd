@@ -104,3 +104,57 @@ ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
 
 print(p)
 ```
+
+# Single scatter plot
+This summarizes the relative abundance for one genus at a time.
+It shows the variation from the biological replicates.
+
+```{r plot_scatter_single}
+#for (i in 1:length(genus_names)) {
+i <- 2
+
+gs <- table_rel_long %>%
+  filter(Genus %in% genus_names[i], seq %in% seq_names)
+  gs %>%
+    ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) +
+    geom_point(
+      shape = 21,
+      color = "black",
+      size = 3,
+      stroke = 1
+    ) +
+    labs(
+       title = genus_names[i],
+       x = "Sieve Range [mm]",
+       y = "Relative Abundance [%]",
+     ) +
+    theme_minimal(base_size = 14)   # sets text size
+  
+  fname = paste0("./results/genus/genus_",genus_names[i], ".png")
+  ggsave(fname, width = 9, height = 4, dpi = 300)
+#}
+```
+
+# Multiple subplots
+This combines multiple genera in subplots
+```{r plot_scatter_multiple}
+
+gs.group_plot <- table_rel_long %>%
+  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), seq %in% seq_names)
+
+### plot
+gs.group_plot %>%
+  ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) + 
+  facet_wrap(~Genus, nrow = 1) +
+  geom_point(
+    shape = 21,
+    color = "black",    # black outline
+    size = 3,
+    stroke = 1
+  ) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1)) +
+  xlab("Sieve Range [mm]") +
+  ylab("Sum of Relative Abundance [%]")
+
+ggsave("./results/genus_group.png")
+```
