@@ -1,4 +1,5 @@
 size_factored <- c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4")
+size_midpoint <- c(0.425, 1.125, 1.7, 2.4, 3.4, 4.5)
 n_sizes <- length(size_factored)
 n_replicates  <- 3
 
@@ -11,6 +12,7 @@ ps <- qiime2R::qza_to_phyloseq(
 )
 
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored, ordered = TRUE)
+ps@sam_data$size.midpoint <- size_midpoint[as.numeric(ps@sam_data$size.mm)]
 
 # Load PNPS data
 pnps <- read_excel("../data/PNPS_conc.xlsx")

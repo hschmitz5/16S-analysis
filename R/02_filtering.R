@@ -12,7 +12,7 @@ ps_filt_r <-rarefy_even_depth(
 
 # Remove taxa not seen more than 3 times (reads) in at least 1/6 of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
-ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) >= ((1/6)*length(x)), TRUE)
+ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) >= (0.2*length(x)), TRUE)
 
 # relative abundance
 ps_rel <- phyloseq::transform_sample_counts(ps_filt, function(x) x*100/sum(x))  # convert to %

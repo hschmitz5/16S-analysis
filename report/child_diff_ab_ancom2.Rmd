@@ -5,38 +5,26 @@ date: "2025-10-23"
 ---
 # Generate Diff Abundance Data
 ```{r diff_ab_ancom2}
-fname <- paste0("../results/ancombc2_output_",n_asv,".rds")
-
+fname <- paste0("../results/ancombc2_output.rds")
+  
 if (file.exists(fname)) {
-    print("loading ANCOM2 data")
-    output <- readRDS(fname)
+  print("loading ANCOM2 data")
+  output <- readRDS(fname)
 } else {
-  reads <- table_abs 
-  
-  reads_top <- reads %>%
-    filter(seq %in% seq_names) 
-  
-  # convert first column to row names
-  rownames(reads_top) <- reads_top$seq
-  reads_top <- reads_top[, -1]
-  
-  # make sample column row names
-  smd <- metadata               # make a copy
-  rownames(smd) <- smd$sample
-  smd$sample <- NULL            # remove the now-redundant column
+  # filter data that in NOT rarefied 
+  # Check that this is consistent with function in 02_filtering.R
+  reads <- filter_taxa(ps_filt0, function(x) sum(x > 3) >= (0.2*length(x)), TRUE)
   
   output <- ancombc2(
-    data = reads_top, 
-    meta_data = smd,
-    fix_formula = "size.mm",     # categorical factor for size classes
-    rand_formula = NULL,         # independent samples
-    group = "size.mm",
-    struc_zero = TRUE,           # detect structural zeros
-    neg_lb = TRUE,               # negative lower bound correction
-    global = TRUE,               # overall test across all 6 groups
-    trend = FALSE,                ## optional, if you think size classes are ordered (make size #)
-    p_adj_method = "holm",       # multiple-testing correction
+    data = reads, 
+    fix_formula = "size.midpoint",     
+    group = "size.midpoint",
+    trend = TRUE,  
+    p_adj_method = "holm",       
     alpha = 0.05
+    #struc_zero = TRUE,           
+    #neg_lb = TRUE,              
+    #global = FALSE,      # per group estimates (keep size)
   )
   
   saveRDS(output, file = fname)
@@ -44,16 +32,19 @@ if (file.exists(fname)) {
 ```
 # Process Data
 ```{r ancom2_process}
-# define significant taxa
-sig_global <- output$res_global  %>%
-  filter(diff_robust_abn) %>%    # use robust results (recommended)
-  rename(seq = taxon,) %>%
-  left_join(taxonomy, join_by(seq)) %>%
-  group_by(Genus, seq, q_val, W) %>%
-  summarise(.groups = "drop") %>%
-  arrange(q_val)
+# renames column
+taxonomy <- taxonomy %>%
+  rename(taxon = seq,) 
 
-```
+# define significant taxa
+#sig_taxa <- output$res_global  %>%
+#  filter(diff_robust_abn) %>%    # use robust results (recommended)
+#  left_join(taxonomy, join_by(taxon)) %>%
+#  group_by(Genus, taxon, q_val, W) %>%
+#  summarise(.groups = "drop") %>%
+#  arrange(q_val)
+
+```   
 # LFC plot
 ```{r lfc_plot}
 contrast_level <- c("L", "Q", "C", "4", "5")
@@ -80,18 +71,21 @@ ggplot(lfc_long, aes(x = contrast, y = lfc, group = taxon, color = taxon)) +
     title = "Degree and shape of differential abundance across size classes"
   )
 ```
-# BC
+
+# Bias corrected abundance
 ```{r bc}
-bc_out <- output$bc_out
+bc_out <- output$bias_correct_log_table
 
 bc_long <- bc_out %>%
   rownames_to_column("taxon") %>%
   pivot_longer(-taxon, names_to = "sample", values_to = "bc_abund") %>%
   left_join(smd %>% rownames_to_column("sample"), by = "sample")
 
-ggplot(bc_long %>% filter(taxon %in% sig_taxa),
+
+# can't have boxplot with 3 data points
+ggplot(bc_long %>% filter(taxon %in% sig_taxa$taxon),
        aes(x = size.mm, y = bc_abund, color = size.mm)) +
-  geom_boxplot() +
+  geom_point() +
   facet_wrap(~ taxon, scales = "free_y") +
   theme_bw() +
   labs(
