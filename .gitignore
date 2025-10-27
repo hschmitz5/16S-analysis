@@ -6,3 +6,5 @@
 # Ignore everything in the results and data directories
 /results/
 /data/
+/code/16S_visualization_main_files
+/code/16S_visualization_main_cache
