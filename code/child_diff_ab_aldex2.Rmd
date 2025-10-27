@@ -9,15 +9,15 @@ This takes a while to run. That's why I save it after running.
 reads <- table_abs
 conds<- as.character(metadata$size.mm)
 
-if (file.exists("./results/aldex_clr_result.rds")) {
-  x <- readRDS("./results/aldex_clr_result.rds")
-  kw.test <- readRDS("./results/aldex_kw_result.rds")
+if (file.exists("../results/aldex_clr_result.rds")) {
+  x <- readRDS("../results/aldex_clr_result.rds")
+  kw.test <- readRDS("../results/aldex_kw_result.rds")
 } else {
   x <- aldex.clr(reads, conds, mc.samples=128, denom="all")
   kw.test <- aldex.kw(x)
    
-  saveRDS(x, file = "./results/aldex_clr_result.rds")
-  saveRDS(kw.test, file = "./results/aldex_kw_result.rds")
+  saveRDS(x, file = "../results/aldex_clr_result.rds")
+  saveRDS(kw.test, file = "../results/aldex_kw_result.rds")
 }
 
 sig_features <- kw.test[kw.test$kw.eBH < 0.05, ]

@@ -48,6 +48,6 @@ pd_results %>%
     ) +
     theme_minimal(base_size = 14)   # sets text size
 
-filename <- paste0("./results/diversity/diversity_Faith.png")
+filename <- paste0("../results/diversity/diversity_Faith.png")
 ggsave(filename, width = 6, height = 4, dpi = 300)
 ```

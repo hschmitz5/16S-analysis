@@ -16,14 +16,14 @@ rm(list = ls())
 
 n_asv <- 15  # number of ASVs to include in the plot 
 
-source("../R/00_setup.R")
-source("../R/01_load_data.R")
-source("../R/02_filtering.R")
-source("../R/03_format_data.R")
-source("../R/04_subset.R")
+source("./R/00_setup.R")
+source("./R/01_load_data.R")
+source("./R/02_filtering.R")
+source("./R/03_format_data.R")
+source("./R/04_subset.R")
 ```
 ### Differential Abundance
-```{r child='child_diff_abundance.Rmd'}
+```{r child='child_diff_ab_ancom2.Rmd'}
 ```
 ### Rank Abundance
 ```{r child='child_rank_abundance.Rmd'}

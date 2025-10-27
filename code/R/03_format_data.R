@@ -5,8 +5,7 @@ metadata <- as.data.frame(as.matrix(ps_rel@sam_data)) %>%
   rownames_to_column("sample") %>%
   mutate(size.mm = factor(size.mm, levels = size_factored, ordered = TRUE))
 
-table_abs <- as.data.frame(ps_filt@otu_table) %>% 
-  rownames_to_column("seq")
+table_abs <- as.data.frame(ps_filt@otu_table) 
 
 table_rel <- as.data.frame(ps_rel@otu_table) %>% 
   rownames_to_column("seq")

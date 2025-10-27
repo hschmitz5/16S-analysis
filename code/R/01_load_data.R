@@ -14,7 +14,8 @@ ps <- qiime2R::qza_to_phyloseq(
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size_factored, ordered = TRUE)
 ps@sam_data$size.midpoint <- size_midpoint[as.numeric(ps@sam_data$size.mm)]
 
-# Load PNPS data
-pnps <- read_excel("../data/PNPS_conc.xlsx")
-pnps.lb <- pnps[, 2:5]
-pnps.tb <- pnps[, c(2, 6:8)]
+# Other Data
+eps <- read_excel("../data/EPS_loss.xlsx", range = cell_cols("A:E"))
+df <- read_excel("../data/EPS_loss.xlsx", range = cell_cols("G:K"))
+eps$size.mm <- factor(eps$size.mm, levels = size_factored, ordered = TRUE)
+df$size.mm <- factor(df$size.mm, levels = size_factored, ordered = TRUE)

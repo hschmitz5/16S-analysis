@@ -1,0 +1,69 @@
+---
+title: "child_stats"
+output: html_document
+date: "2025-10-27"
+---
+
+```{r correlation}
+merged <- eps %>%
+  slice(-1) %>%
+  left_join(df, join_by(size.mm))
+
+merged$size.midpoint <- size_midpoint[as.numeric(merged$size.mm)]
+
+# Spearman - non-parametric
+res1 <- cor.test(merged$TB.avg, merged$G1.avg, method = "spearman")
+res2 <- cor.test(merged$TB.avg, merged$G2.avg, method = "spearman")
+res3 <- cor.test(merged$LB.avg, merged$G1.avg, method = "spearman")
+res4 <- cor.test(merged$LB.avg, merged$G2.avg, method = "spearman")
+res5 <- cor.test(merged$size.midpoint, merged$G1.avg, method = "spearman")
+res6 <- cor.test(merged$size.midpoint, merged$G2.avg, method = "spearman")
+```
+# G1 vs TB
+```{r tb}
+#mod <- lm(G1.avg ~ TB.avg, data = merged)
+ggplot(data = merged, aes(x = G1.avg, y = TB.avg, color = size.mm)) +
+  geom_point() +
+  #geom_smooth(method = "lm") +
+  theme_minimal()
+```
+# PNPS
+```{r eps}
+eps_long <- eps %>%
+  pivot_longer(
+    cols = -size.mm,                              # all columns except size.mm
+    names_to = c("extract.type", ".value"),        # split names into type + variable
+    names_pattern = "(.*)\\.(avg|sd)"              # regex to match "LB.avg", "TB.sd", etc.
+  ) %>%
+  rename(
+    pnps.avg = avg,
+    pnps.sd  = sd
+  )
+ggplot(data = eps_long, aes(x = size.mm, y = pnps.avg, color = extract.type)) +
+  geom_point(position = position_dodge(width = 0.2), size = 2) +
+  geom_errorbar(
+    aes(ymin = pnps.avg - pnps.sd, ymax = pnps.avg + pnps.sd),
+    width = 0.2,
+    position = position_dodge(width = 0.2)
+  ) +
+  scale_color_manual(values = met.brewer("Hiroshige", 2)) +
+  labs(
+    x = "Size [mm]",
+    y = "Mean PN/PS",
+    color = "Extract Type"
+  ) +
+  theme_minimal(base_size = 16)
+print(getwd())
+ggsave("../results/PNPS.png")
+```
+# Moduli
+```{r moduli}
+ggplot(data = merged, aes(x = size.midpoint, y = G1.avg)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Size [mm]",
+    y = "Storage Modulus [Pa]"
+  ) +
+  theme_minimal()
+```

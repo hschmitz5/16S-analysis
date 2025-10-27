@@ -10,7 +10,7 @@ ps_filt_r <-rarefy_even_depth(
   ps_filt0, rarefy_level, rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE
 )
 
-# Remove taxa not seen more than 3 times (reads) in at least 1/6 of the samples. 
+# Remove taxa not seen more than 3 times (reads) in at least 20% of the samples. 
 # This protects against an OTU with small mean & trivially large C.V.
 ps_filt = filter_taxa(ps_filt_r, function(x) sum(x > 3) >= (0.2*length(x)), TRUE)
 
