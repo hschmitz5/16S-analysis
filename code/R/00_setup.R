@@ -6,7 +6,7 @@ suppressPackageStartupMessages({
   library(ANCOMBC)
   library(ALDEx2)
   library(picante)
-  library(indicspecies)
+  #library(indicspecies)
   library(readxl)
   # optional
   library(MetBrewer) # fun color palettes

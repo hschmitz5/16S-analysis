@@ -11,20 +11,24 @@ if (file.exists(fname)) {
   print("loading ANCOM2 data")
   output <- readRDS(fname)
 } else {
-  # filter data that in NOT rarefied 
-  # Check that this is consistent with function in 02_filtering.R
-  reads <- filter_taxa(ps_filt0, function(x) sum(x > 3) >= (0.2*length(x)), TRUE)
+  contrast_mats = list(
+    matrix(c(1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1),
+    nrow = 5, byrow = TRUE),
+    matrix(c(-1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1),
+    nrow = 5, byrow = TRUE)
+  )
   
+  set.seed(123)
   output <- ancombc2(
-    data = reads, 
-    fix_formula = "size.midpoint",     
-    group = "size.midpoint",
-    trend = TRUE,  
-    p_adj_method = "holm",       
-    alpha = 0.05
-    #struc_zero = TRUE,           
-    #neg_lb = TRUE,              
-    #global = FALSE,      # per group estimates (keep size)
+    data = ps_filt, 
+    fix_formula = "size.name",    
+    group = "size.name",
+    struc_zero = TRUE,
+    global = TRUE, pairwise = TRUE, dunnet = TRUE, trend = TRUE,  
+    trend_control = list(contrast = contrast_mats,
+                    node = list(5, 5),
+                    solver = "ECOS",
+                    B = 100)
   )
   
   saveRDS(output, file = fname)
