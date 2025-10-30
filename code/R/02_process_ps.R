@@ -7,7 +7,11 @@ get_ps <- function(){
     metadata = "../data/sample-metadata.tsv"
   )
   ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size$ranges, ordered = TRUE)
-  ps@sam_data$size.name <- size$name[as.numeric(ps@sam_data$size.mm)]
+  ps@sam_data$size.name <- factor(
+    size$name[as.numeric(ps@sam_data$size.mm)], 
+    levels = size$name, 
+    ordered = TRUE
+  )
   
   #### Filter ####
   
@@ -30,8 +34,9 @@ get_ps <- function(){
 
 get_metadata <- function(ps_filt){
   metadata <- as.data.frame(as.matrix(ps_filt@sam_data)) %>%
-    rownames_to_column("Sample") %>%
-    mutate(size.mm = factor(size.mm, levels = size$ranges, ordered = TRUE))
+  rownames_to_column("Sample") #%>%
+  mutate(size.mm = factor(size.mm, levels = size$ranges, ordered = TRUE),
+         size.name = factor(size.name, levels = size$name, ordered = TRUE))
 }
 
 convert_rel <- function(ps_filt){

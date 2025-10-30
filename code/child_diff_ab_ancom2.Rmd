@@ -3,36 +3,63 @@ title: "ANCOM-BC2 Differential Abundance"
 output: html_document
 date: "2025-10-23"
 ---
-# Generate Diff Abundance Data
+# Load Data
 ```{r diff_ab_ancom2}
-fname <- paste0("../results/ancombc2_output.rds")
+fname <- "../results/ancombc2_output.rds"
   
-if (file.exists(fname)) {
-  print("loading ANCOM2 data")
-  output <- readRDS(fname)
-} else {
-  contrast_mats = list(
-    matrix(c(1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1),
-    nrow = 5, byrow = TRUE),
-    matrix(c(-1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1),
-    nrow = 5, byrow = TRUE)
-  )
+output <- readRDS(fname)
+```
+# Plot
+```{r lfc}
+res_prim = output$res
+
+df_fig_bmi1 = res_prim %>%
+    dplyr::filter(diff_size.nameS == 1 | 
+                    diff_size.nameM == 1) %>%
+    dplyr::mutate(lfc1 = ifelse(diff_bmioverweight == 1, 
+                                round(lfc_bmioverweight, 2), 0),
+                  lfc2 = ifelse(diff_bmilean == 1, 
+                                round(lfc_bmilean, 2), 0)) %>%
+    tidyr::pivot_longer(cols = lfc1:lfc2, 
+                        names_to = "group", values_to = "value") %>%
+    dplyr::arrange(taxon)
+
+df_fig_bmi2 = df_bmi %>%
+    dplyr::filter(diff_bmilean == 1 | 
+                    diff_bmioverweight == 1) %>%
+    dplyr::mutate(lfc1 = ifelse(diff_robust_bmioverweight, 
+                                "aquamarine3", "black"),
+                  lfc2 = ifelse(diff_robust_bmilean, 
+                                "aquamarine3", "black")) %>%
+    tidyr::pivot_longer(cols = lfc1:lfc2, 
+                        names_to = "group", values_to = "color") %>%
+    dplyr::arrange(taxon)
+
+df_fig_bmi = df_fig_bmi1 %>%
+    dplyr::left_join(df_fig_bmi2, by = c("taxon", "group"))
+
+df_fig_bmi$group = recode(df_fig_bmi$group, 
+                          `lfc1` = "Overweight - Obese",
+                          `lfc2` = "Lean - Obese")
+df_fig_bmi$group = factor(df_fig_bmi$group, 
+                          levels = c("Overweight - Obese",
+                                     "Lean - Obese"))
   
-  set.seed(123)
-  output <- ancombc2(
-    data = ps_filt, 
-    fix_formula = "size.name",    
-    group = "size.name",
-    struc_zero = TRUE,
-    global = TRUE, pairwise = TRUE, dunnet = TRUE, trend = TRUE,  
-    trend_control = list(contrast = contrast_mats,
-                    node = list(5, 5),
-                    solver = "ECOS",
-                    B = 100)
-  )
-  
-  saveRDS(output, file = fname)
-}
+lo = floor(min(df_fig_bmi$value))
+up = ceiling(max(df_fig_bmi$value))
+mid = (lo + up)/2
+fig_bmi = df_fig_bmi %>%
+  ggplot(aes(x = group, y = taxon, fill = value)) + 
+  geom_tile(color = "black") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       na.value = "white", midpoint = mid, limit = c(lo, up),
+                       name = NULL) +
+  geom_text(aes(group, taxon, label = value, color = color), size = 4) +
+  scale_color_identity(guide = "none") +
+  labs(x = NULL, y = NULL, title = "Log fold changes as compared to obese subjects") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+fig_bmi
 ```
 # Process Data
 ```{r ancom2_process}

@@ -13,6 +13,7 @@ output <- ancombc2(
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
+  verbose = TRUE,
   global = TRUE, pairwise = TRUE, dunnet = TRUE, trend = TRUE,  
   trend_control = list(contrast = contrast_mats,
                        node = list(5, 5),
