@@ -1,0 +1,32 @@
+---
+title: "16S_Visualization_main"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  html_notebook:
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+---
+# Data Import
+```{r}
+# Clear environment
+rm(list = ls())
+
+n_asv <- 15  # number of ASVs to include in the plot 
+
+source("./R/00_setup.R")
+source("./R/01_define_param.R")
+source("./R/02_process_ps.R")
+ps_filt <- get_ps()
+#metadata <- get_metadata(ps_filt)
+table_rel_long <- convert_rel(ps_filt)
+#source("./R/03_subset.R")
+```
+### Differential Abundance
+```{r child='child_diff_ab_ancom2.Rmd'}
+```
+### Rank Abundance
+```{r child='child_rank_abundance.Rmd'}
+```

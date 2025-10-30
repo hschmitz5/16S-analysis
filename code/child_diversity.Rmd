@@ -1,0 +1,53 @@
+---
+title: "child_diversity"
+output: html_document
+date: "2025-10-24"
+---
+
+# Alpha Diversity - Shannon
+
+```{r diversity_plot}
+div_type = c("Shannon")
+
+p <- plot_richness(ps_filt, x = "size.mm", measures = div_type) +
+  geom_point(size=2) +
+  labs(
+    title = div_type,
+    x = "Sieve Range [mm]"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(strip.text = element_blank()) # removes default title
+  #theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
+
+# Save the plot
+filename <- paste0("./results/diversity/diversity_", div_type, ".png")
+ggsave(filename, plot = p, width = 6, height = 4, dpi = 300)
+print(p)
+
+```
+
+# Faith's Phylogenetic Diversity Index
+
+```{r diversity_Faith}
+comm <- t(table_abs) # transpose 
+phy <- ps_filt@phy_tree
+
+pd_results <- pd(comm, phy) %>%
+  rownames_to_column(var = "sample") %>%
+  left_join(metadata, join_by(sample))
+head(pd_results)
+
+# plot
+pd_results %>%
+    ggplot(aes(x = size.mm, y = PD)) +
+    geom_point(size = 2) +
+    labs(
+      title = "Faith's phylogenetic diversity index",
+      x = "Sieve Range [mm]",
+      y = "Alpha Diversity Measure",
+    ) +
+    theme_minimal(base_size = 14)   # sets text size
+
+filename <- paste0("../results/diversity/diversity_Faith.png")
+ggsave(filename, width = 6, height = 4, dpi = 300)
+```

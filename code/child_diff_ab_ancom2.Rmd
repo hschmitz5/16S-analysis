@@ -1,0 +1,128 @@
+---
+title: "ANCOM-BC2 Differential Abundance"
+output: html_document
+date: "2025-10-23"
+---
+# Load Data
+```{r diff_ab_ancom2}
+fname <- "../results/ancombc2_output.rds"
+  
+output <- readRDS(fname)
+```
+# Plot
+```{r lfc}
+res_prim = output$res
+
+df_fig_bmi1 = res_prim %>%
+    dplyr::filter(diff_size.nameS == 1 | 
+                    diff_size.nameM == 1) %>%
+    dplyr::mutate(lfc1 = ifelse(diff_bmioverweight == 1, 
+                                round(lfc_bmioverweight, 2), 0),
+                  lfc2 = ifelse(diff_bmilean == 1, 
+                                round(lfc_bmilean, 2), 0)) %>%
+    tidyr::pivot_longer(cols = lfc1:lfc2, 
+                        names_to = "group", values_to = "value") %>%
+    dplyr::arrange(taxon)
+
+df_fig_bmi2 = df_bmi %>%
+    dplyr::filter(diff_bmilean == 1 | 
+                    diff_bmioverweight == 1) %>%
+    dplyr::mutate(lfc1 = ifelse(diff_robust_bmioverweight, 
+                                "aquamarine3", "black"),
+                  lfc2 = ifelse(diff_robust_bmilean, 
+                                "aquamarine3", "black")) %>%
+    tidyr::pivot_longer(cols = lfc1:lfc2, 
+                        names_to = "group", values_to = "color") %>%
+    dplyr::arrange(taxon)
+
+df_fig_bmi = df_fig_bmi1 %>%
+    dplyr::left_join(df_fig_bmi2, by = c("taxon", "group"))
+
+df_fig_bmi$group = recode(df_fig_bmi$group, 
+                          `lfc1` = "Overweight - Obese",
+                          `lfc2` = "Lean - Obese")
+df_fig_bmi$group = factor(df_fig_bmi$group, 
+                          levels = c("Overweight - Obese",
+                                     "Lean - Obese"))
+  
+lo = floor(min(df_fig_bmi$value))
+up = ceiling(max(df_fig_bmi$value))
+mid = (lo + up)/2
+fig_bmi = df_fig_bmi %>%
+  ggplot(aes(x = group, y = taxon, fill = value)) + 
+  geom_tile(color = "black") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       na.value = "white", midpoint = mid, limit = c(lo, up),
+                       name = NULL) +
+  geom_text(aes(group, taxon, label = value, color = color), size = 4) +
+  scale_color_identity(guide = "none") +
+  labs(x = NULL, y = NULL, title = "Log fold changes as compared to obese subjects") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+fig_bmi
+```
+# Process Data
+```{r ancom2_process}
+# renames column
+taxonomy <- taxonomy %>%
+  rename(taxon = seq,) 
+
+# define significant taxa
+#sig_taxa <- output$res_global  %>%
+#  filter(diff_robust_abn) %>%    # use robust results (recommended)
+#  left_join(taxonomy, join_by(taxon)) %>%
+#  group_by(Genus, taxon, q_val, W) %>%
+#  summarise(.groups = "drop") %>%
+#  arrange(q_val)
+
+```   
+# LFC plot
+```{r lfc_plot}
+contrast_level <- c("L", "Q", "C", "4", "5")
+
+# log-fold change
+lfc_long <- output$res %>%
+  dplyr::select(taxon, dplyr::starts_with("lfc_size.mm")) %>%
+  pivot_longer(
+    cols = -taxon,
+    names_to = "contrast",
+    values_to = "lfc"
+  ) %>%
+  mutate(
+    contrast = gsub("lfc_size.mm.", "", contrast),
+    contrast = factor(contrast, levels = contrast_level)
+  )
+
+ggplot(lfc_long, aes(x = contrast, y = lfc, group = taxon, color = taxon)) +
+  geom_line(alpha = 0.5) +
+  theme_bw() +
+  labs(
+    x = "Contrast (trend component)",
+    y = "Log fold-change",
+    title = "Degree and shape of differential abundance across size classes"
+  )
+```
+
+# Bias corrected abundance
+```{r bc}
+bc_out <- output$bias_correct_log_table
+
+bc_long <- bc_out %>%
+  rownames_to_column("taxon") %>%
+  pivot_longer(-taxon, names_to = "sample", values_to = "bc_abund") %>%
+  left_join(smd %>% rownames_to_column("sample"), by = "sample")
+
+
+# can't have boxplot with 3 data points
+ggplot(bc_long %>% filter(taxon %in% sig_taxa$taxon),
+       aes(x = size.mm, y = bc_abund, color = size.mm)) +
+  geom_point() +
+  facet_wrap(~ taxon, scales = "free_y") +
+  theme_bw() +
+  labs(
+    x = "Size class",
+    y = "Bias-corrected abundance",
+    title = "Differential abundance patterns across size classes"
+  )
+
+```
