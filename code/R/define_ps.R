@@ -6,18 +6,23 @@ library(phyloseq)
 
 # define sample names
 size <- data.frame(
-  ranges = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"),
-  name = c("XS", "S", "M", "L", "XL", "XXL")
+  ranges = c("0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"),
+  name = c("S", "M", "L", "XL", "XXL")
+  #ranges = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"),
+  #name = c("XS", "S", "M", "L", "XL", "XXL")
 )
 
 # Import QIIME2 data as phyloseq object
-ps <- qiime2R::qza_to_phyloseq(
+ps0 <- qiime2R::qza_to_phyloseq(
   features = "./data/qiime/table_dada2.qza",
   tree = "./data/qiime/rooted_tree.qza",
   taxonomy = "./data/qiime/taxonomy.qza",
   metadata = "./data/qiime/sample-metadata.tsv"
 )
   
+# remove 0-0.85 mm granules
+ps <- subset_samples(ps0, size.mm != "0-0.85")
+
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size$ranges, ordered = TRUE)
 ps@sam_data$size.name <- factor(size$name[as.numeric(ps@sam_data$size.mm)], 
                                 levels = size$name, ordered = TRUE)
