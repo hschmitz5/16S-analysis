@@ -1,14 +1,14 @@
 library(ANCOMBC)
 
-ps_genus <- readRDS("../data/ps_genus.rds") 
+ps_genus <- readRDS("./ps_genus.rds") 
 
 contrast_mats = list(
   # monotonically increasing
-  matrix(c(1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1),
-         nrow = 5, byrow = TRUE),
+  matrix(c(1, 0, 0, 0, -1, 1, 0, 0, 0, -1, 1, 0, 0, 0, -1, 1),
+         nrow = 4, byrow = TRUE),
   # monotonically decreasing
-  matrix(c(-1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1),
-         nrow = 5, byrow = TRUE)
+  matrix(c(-1, 0, 0, 0, 1, -1, 0, 0, 0, 1, -1, 0, 0, 0, 1, -1),
+         nrow = 4, byrow = TRUE)
 )
 
 set.seed(123)
@@ -20,9 +20,9 @@ output <- ancombc2(
   struc_zero = TRUE,
   global = TRUE, dunnet = TRUE, trend = TRUE,  
   trend_control = list(contrast = contrast_mats,
-                       node = list(5, 5),
+                       node = list(4, 4),
                        solver = "ECOS",
                        B = 100)
 )
 
-saveRDS(output, file = "./results/ancombc2_genus.rds")
+saveRDS(output, file = "./ancombc2_genus.rds")
