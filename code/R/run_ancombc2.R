@@ -1,3 +1,5 @@
+library(ANCOMBC)
+
 contrast_mats = list(
   # monotonically increasing
   matrix(c(1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1),
@@ -9,16 +11,16 @@ contrast_mats = list(
 
 set.seed(123)
 output <- ancombc2(
-  data = ps_filt, 
+  data = ps_genus, 
+  tax_level = "Genus",
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
-  verbose = TRUE,
-  global = TRUE, pairwise = TRUE, dunnet = TRUE, trend = TRUE,  
+  global = TRUE, dunnet = TRUE, trend = TRUE,  
   trend_control = list(contrast = contrast_mats,
                        node = list(5, 5),
                        solver = "ECOS",
                        B = 100)
 )
 
-saveRDS(output, file = "../results/ancombc2_output.rds")
+saveRDS(output, file = "./results/ancombc2_genus.rds")
