@@ -1,7 +1,15 @@
-metadata <- get_metadata(ps_filt)
+rm(list = ls())
+
+library(ALDEx2)
+
+ps <- readRDS("./data/ps_genus.rds") 
+size_name <- levels(ps@sam_data$size.name)
+
+metadata <- as.data.frame(as.matrix(ps@sam_data)) %>%
+  rownames_to_column("Sample") 
 
 # Generate pairwise combinations
-pair_samples <- combn(size$name, 2) %>%
+pair_samples <- combn(size_name, 2) %>%
   t() %>%
   as.data.frame(stringsAsFactors = FALSE) %>%
   rename(size1 = V1, size2 = V2) %>%
@@ -12,7 +20,7 @@ pair_samples <- combn(size$name, 2) %>%
                    %>% filter(size.name %in% c(.x, .y)) %>% pull(Sample)),
     res = map(samples, function(samples_in_pair) {
       # Subset counts table
-      reads <- as.data.frame(ps_filt@otu_table) %>%
+      reads <- as.data.frame(ps_genus@otu_table) %>%
         dplyr::select(all_of(samples_in_pair))
       # Get conditions
       conds <- metadata$size.name[match(samples_in_pair, metadata$Sample)]
@@ -22,7 +30,7 @@ pair_samples <- combn(size$name, 2) %>%
   ) %>%
   dplyr::select(comparison, res)
 
-saveRDS(pair_samples, file = "../results/aldex_t.rds")
+saveRDS(pair_samples, file = "./results/aldex_t.rds")
 
 # ---- Kruskal Wallis test ----
 # 
