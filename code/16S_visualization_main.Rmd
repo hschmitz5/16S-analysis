@@ -14,7 +14,7 @@ output:
 # Clear environment
 rm(list = ls())
 
-n_asv <- 15  # number of ASVs to include in the plot 
+n_taxa <- 20  # number of taxa to include in the plot 
 
 source("./R/00_setup.R")
 source("./R/01_load_data.R")

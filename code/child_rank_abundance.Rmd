@@ -13,8 +13,6 @@ NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 ```{r rank_abundance_average}
 
-cat("Child document is running!")
-
 ggplot() +
   # Bars (Sum of ASVs)
   geom_col(

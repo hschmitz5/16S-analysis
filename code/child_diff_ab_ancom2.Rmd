@@ -3,118 +3,181 @@ title: "ANCOM-BC2 Differential Abundance"
 output: html_document
 date: "2025-10-23"
 ---
-# Load Data
-```{r diff_ab_ancom2}
-fname <- "../results/ancombc2_output.rds"
-  
-output <- readRDS(fname)
-```
-# Plot
-```{r lfc}
-res_prim = output$res
+# Note: run acombc2 with tax_level = "Genus"
 
-df_fig_bmi1 = res_prim %>%
-    dplyr::filter(diff_size.nameS == 1 | 
-                    diff_size.nameM == 1) %>%
-    dplyr::mutate(lfc1 = ifelse(diff_bmioverweight == 1, 
-                                round(lfc_bmioverweight, 2), 0),
-                  lfc2 = ifelse(diff_bmilean == 1, 
-                                round(lfc_bmilean, 2), 0)) %>%
+# Load Data and
+# Identify globally significant taxa
+```{r sig}
+library(ComplexHeatmap)
+
+fname <- "../results/ancombc2_output.rds"
+output <- readRDS(fname)
+
+taxonomy <- get_taxonomy(ps_ASV)
+# define significant taxa
+sig_taxa <- output$res_global %>%
+  rename(OTU = 1) %>%
+  filter(diff_robust_abn) %>%    # use robust results (recommended)
+  left_join(taxonomy, join_by(OTU)) %>%
+  group_by(OTU, Genus, q_val, W) %>%
+  summarise(.groups = "drop") %>%
+  arrange(q_val)
+```
+
+# Identify significant taxa per comparison
+```{r sig}
+# combine taxonomy with data
+res_prim = output$res %>%
+  rename(OTU = 1) %>%
+  inner_join(taxonomy, by = join_by("OTU")) %>%
+  dplyr::select(OTU, Genus, everything())
+
+# how many sig taxa per size
+num_sig <- c(
+  XS = sum(res_prim$diff_robust_size.nameXS, na.rm = TRUE),
+  S = sum(res_prim$diff_robust_size.nameS, na.rm = TRUE),
+  M = sum(res_prim$diff_robust_size.nameM, na.rm = TRUE),
+  XL = sum(res_prim$diff_robust_size.nameXL, na.rm = TRUE),
+  XXL = sum(res_prim$diff_robust_size.nameXXL, na.rm = TRUE)
+)
+
+# names of significant taxa
+all_sig_taxa <- sig_taxa$OTU
+
+df_wide <- res_prim %>%
+  filter(OTU %in% all_sig_taxa) %>%
+  mutate(
+    #XS = ifelse(diff_robust_size.nameXS == TRUE, round(lfc_size.nameXS, 2), 0),
+    #S = ifelse(diff_robust_size.nameS == TRUE, round(lfc_size.nameS, 2), 0),
+    M = ifelse(diff_robust_size.nameM == TRUE, round(lfc_size.nameM, 2), 0),
+    XL = ifelse(diff_robust_size.nameXL == TRUE, round(lfc_size.nameXL, 2), 0),
+    XXL = ifelse(diff_robust_size.nameXXL == TRUE, round(lfc_size.nameXXL, 2), 0)
+  ) %>%
+  dplyr::select(OTU, Genus, M, XL, XXL) %>%
+  # dplyr::select(OTU, Genus, XS, S, M, XL, XXL) %>%
+  mutate(
+    sum_effect = rowSums(across(3:5, abs), na.rm = TRUE),
+    mean_effect = rowMeans(across(3:5, abs), na.rm = TRUE)
+    # sum_effect = rowSums(across(3:7, abs), na.rm = TRUE),
+    # mean_effect = rowMeans(across(3:7, abs), na.rm = TRUE)
+  ) %>%
+  arrange(desc(mean_effect))
+```
+# Vis
+```{r vis}
+fig_dat <- df_wide %>%
+  head(31) %>%
+  #filter(!is.na(Genus)) %>%
+  dplyr::select(-Genus, -sum_effect, -mean_effect) %>%
+  tibble::column_to_rownames("OTU")
+
+# Create basic heatmap
+basic_heatmap <- Heatmap(
+  fig_dat,
+  name = "lfc",
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  column_names_gp = gpar(fontsize = 8),
+  #column_title = "Patient Gene Expression Heatmap"
+)
+
+# Draw the heatmap
+print(basic_heatmap)
+```
+# Testing
+```{r start}
+# # top taxa
+# df_long <- head(df_wide, 30) %>%
+#   dplyr::select(-sum_effect, -mean_effect) %>%
+#   filter(!is.na(Genus)) %>%
+#   pivot_longer(
+#     cols = -c(OTU, Genus),
+#     names_to = "group",
+#     values_to = "lfc"
+#   )
+# df_long$group <- factor(df_long$group, levels = size$name, ordered = TRUE)
+
+# lo = floor(min(df_long$lfc))
+# up = ceiling(max(df_long$lfc))
+# mid = (lo + up)/2
+# fig = df_long %>%
+#   ggplot(aes(x = group, y = Genus, fill = lfc)) + 
+#   geom_tile(color = "black") +
+#   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+#                        na.value = "white", midpoint = mid, limit = c(lo, up),
+#                        name = NULL) +
+#   #geom_text(aes(group, Genus, label = lfc), size = 4) +
+#   scale_color_identity(guide = "none") +
+#   labs(x = NULL, y = NULL, title = "Log fold changes as compared to L granules") +
+#   theme_minimal() +
+#   theme(plot.title = element_text(hjust = 0.5))
+# 
+# fig
+
+df_fig1 = res_prim %>%
+    dplyr::filter(diff_size.nameXL == 1 | 
+                    diff_size.nameXXL == 1) %>%
+    dplyr::mutate(lfc1 = ifelse(diff_size.nameXL == 1, 
+                                round(lfc_size.nameXL, 2), 0),
+                  lfc2 = ifelse(diff_size.nameXXL == 1, 
+                                round(lfc_size.nameXXL, 2), 0)) %>%
     tidyr::pivot_longer(cols = lfc1:lfc2, 
                         names_to = "group", values_to = "value") %>%
-    dplyr::arrange(taxon)
+    dplyr::arrange(OTU)
 
-df_fig_bmi2 = df_bmi %>%
-    dplyr::filter(diff_bmilean == 1 | 
-                    diff_bmioverweight == 1) %>%
-    dplyr::mutate(lfc1 = ifelse(diff_robust_bmioverweight, 
+df_fig2 = res_prim %>%
+    dplyr::filter(diff_size.nameXL == 1 | 
+                    diff_size.nameXXL == 1) %>%
+    dplyr::mutate(lfc1 = ifelse(diff_robust_size.nameXL, 
                                 "aquamarine3", "black"),
-                  lfc2 = ifelse(diff_robust_bmilean, 
+                  lfc2 = ifelse(diff_robust_size.nameXXL, 
                                 "aquamarine3", "black")) %>%
     tidyr::pivot_longer(cols = lfc1:lfc2, 
                         names_to = "group", values_to = "color") %>%
-    dplyr::arrange(taxon)
+    dplyr::select(OTU, group, color) %>% 
+    dplyr::arrange(OTU)
 
-df_fig_bmi = df_fig_bmi1 %>%
-    dplyr::left_join(df_fig_bmi2, by = c("taxon", "group"))
+df_fig = df_fig1 %>%
+    dplyr::left_join(df_fig2, by = c("OTU", "group")) %>%
+    dplyr::select(OTU, Family, Genus, group, value, color) 
 
-df_fig_bmi$group = recode(df_fig_bmi$group, 
-                          `lfc1` = "Overweight - Obese",
-                          `lfc2` = "Lean - Obese")
-df_fig_bmi$group = factor(df_fig_bmi$group, 
-                          levels = c("Overweight - Obese",
-                                     "Lean - Obese"))
-  
-lo = floor(min(df_fig_bmi$value))
-up = ceiling(max(df_fig_bmi$value))
+df_fig$group = recode(df_fig$group, 
+                          `lfc1` = "XL - L",
+                          `lfc2` = "XXL - L")
+df_fig$group = factor(df_fig$group, 
+                          levels = c("XL - L",
+                                     "XXL - L"))
+
+lo = floor(min(df_fig$value))
+up = ceiling(max(df_fig$value))
 mid = (lo + up)/2
-fig_bmi = df_fig_bmi %>%
-  ggplot(aes(x = group, y = taxon, fill = value)) + 
+fig = df_fig %>%
+  ggplot(aes(x = group, y = Genus, fill = value)) + 
   geom_tile(color = "black") +
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                        na.value = "white", midpoint = mid, limit = c(lo, up),
                        name = NULL) +
-  geom_text(aes(group, taxon, label = value, color = color), size = 4) +
+  geom_text(aes(group, Genus, label = value, color = color), size = 4) +
   scale_color_identity(guide = "none") +
-  labs(x = NULL, y = NULL, title = "Log fold changes as compared to obese subjects") +
+  labs(x = NULL, y = NULL, title = "Log fold changes as compared to L granules") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
-fig_bmi
-```
-# Process Data
-```{r ancom2_process}
-# renames column
-taxonomy <- taxonomy %>%
-  rename(taxon = seq,) 
 
-# define significant taxa
-#sig_taxa <- output$res_global  %>%
-#  filter(diff_robust_abn) %>%    # use robust results (recommended)
-#  left_join(taxonomy, join_by(taxon)) %>%
-#  group_by(Genus, taxon, q_val, W) %>%
-#  summarise(.groups = "drop") %>%
-#  arrange(q_val)
-
-```   
-# LFC plot
-```{r lfc_plot}
-contrast_level <- c("L", "Q", "C", "4", "5")
-
-# log-fold change
-lfc_long <- output$res %>%
-  dplyr::select(taxon, dplyr::starts_with("lfc_size.mm")) %>%
-  pivot_longer(
-    cols = -taxon,
-    names_to = "contrast",
-    values_to = "lfc"
-  ) %>%
-  mutate(
-    contrast = gsub("lfc_size.mm.", "", contrast),
-    contrast = factor(contrast, levels = contrast_level)
-  )
-
-ggplot(lfc_long, aes(x = contrast, y = lfc, group = taxon, color = taxon)) +
-  geom_line(alpha = 0.5) +
-  theme_bw() +
-  labs(
-    x = "Contrast (trend component)",
-    y = "Log fold-change",
-    title = "Degree and shape of differential abundance across size classes"
-  )
+fig
 ```
 
 # Bias corrected abundance
 ```{r bc}
 bc_out <- output$bias_correct_log_table
+metadata <- get_metadata(ps_filt)
 
 bc_long <- bc_out %>%
   rownames_to_column("taxon") %>%
-  pivot_longer(-taxon, names_to = "sample", values_to = "bc_abund") %>%
-  left_join(smd %>% rownames_to_column("sample"), by = "sample")
-
+  pivot_longer(-taxon, names_to = "Sample", values_to = "bc_abund") %>%
+  left_join(metadata, by = "Sample")
 
 # can't have boxplot with 3 data points
-ggplot(bc_long %>% filter(taxon %in% sig_taxa$taxon),
+ggplot(bc_long %>% filter(taxon %in% sig_taxa$OTU),
        aes(x = size.mm, y = bc_abund, color = size.mm)) +
   geom_point() +
   facet_wrap(~ taxon, scales = "free_y") +

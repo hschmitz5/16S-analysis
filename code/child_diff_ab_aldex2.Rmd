@@ -10,8 +10,8 @@ p_threshold <- 0.05
 
 fname <- "../results/aldex_t.rds"
 res0 <- readRDS(fname) %>%
-  dplyr::slice(c(4, 7, 9, 10)) # ref: XXL
-  # dplyr::slice(c(1, 2, 3, 4)).   # ref: S
+  dplyr::slice(c(1, 2, 3, 4)).   # ref: S
+  # dplyr::slice(c(4, 7, 9, 10)) # ref: XXL
   # dplyr::slice(c(1, 5, 8, 10)) # ref: adjacent
 
 # join taxonomy with aldex results

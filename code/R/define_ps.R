@@ -8,8 +8,6 @@ library(phyloseq)
 size <- data.frame(
   ranges = c("0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"),
   name = c("S", "M", "L", "XL", "XXL")
-  #ranges = c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"),
-  #name = c("XS", "S", "M", "L", "XL", "XXL")
 )
 
 # Import QIIME2 data as phyloseq object

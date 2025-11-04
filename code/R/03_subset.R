@@ -1,16 +1,11 @@
-# Identify top ASVs by mean abundance (excluding NA Genera)
-top_asvs <- table_rel_long %>%
-  filter(!is.na(Genus)) %>%
-  group_by(Genus, seq) %>%
-  summarise(mean_ab = mean(rel_ab), .groups = "drop") %>%  
-  arrange(desc(mean_ab)) %>%  
-  slice_head(n = n_asv) 
+# Many genera have multiple ASVs in which one ASV is almost zero
+# Few have ASVs with a non-negligible abundance
+rel_ab_cutoff <- 0.5 # %
 
-# Sum abundances of selected ASVs per sample
+# If a genus has multiple ASVs, they're added together
 genus_sum <- table_rel_long %>%
-  filter(seq %in% top_asvs$seq) %>%
-  group_by(sample, size.mm, Genus) %>%
-  summarise(sum_ab = sum(rel_ab), .groups = "drop") 
+  group_by(Sample, size.mm, Genus) %>%
+  summarise(sum_ab = sum(Abundance), .groups = "drop") 
 
 # Average per Genus across all samples
 genus_avg <- genus_sum %>%
@@ -18,27 +13,34 @@ genus_avg <- genus_sum %>%
   summarise(
     mean_ab = mean(sum_ab),
     sd_ab = sd(sum_ab),
-    .groups = "drop"
-  ) %>%
+    .groups = "drop") %>%
+  filter(mean_ab > rel_ab_cutoff) %>%
   arrange(desc(mean_ab)) %>%
   # Factor the genus based on relative abundance
   mutate(Genus = forcats::fct_reorder(Genus, mean_ab, .desc = TRUE))
 
 # Define Genus factor levels
-genus_levels <- levels(genus_avg$Genus)
-
-top_asvs <- top_asvs %>%
-  mutate(Genus = factor(Genus, levels = genus_levels))
+genus_names <- levels(genus_avg$Genus)
 
 # Average per Genus across replicates
 genus_size <- genus_sum %>%
+  filter(Genus %in% genus_names) %>%
   group_by(Genus, size.mm) %>%
   summarise(
     mean_ab = mean(sum_ab),
-    sd_ab = sd(sum_ab)
-  ) %>%
-  mutate(Genus = factor(Genus, levels = genus_levels))
+    sd_ab = sd(sum_ab),
+    .groups = "drop") %>%  
+  mutate(Genus = factor(Genus, levels = genus_names))
 
-### Names
-genus_names <- genus_avg$Genus 
-seq_names <- top_asvs$seq
+### If you're interested in ASVs (not agglomerating genera)
+top_asvs <- convert_rel(ps_ASV) %>%
+  filter(!is.na(Genus)) %>%
+  group_by(Genus, OTU) %>%
+  summarise(
+    mean_ab = mean(Abundance), 
+    sd_ab = sd(Abundance),
+    .groups = "drop") %>%  
+  arrange(desc(mean_ab)) %>%  
+  filter(mean_ab > rel_ab_cutoff)
+
+OTU_names <- top_asvs$OTU
