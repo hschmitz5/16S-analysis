@@ -10,30 +10,18 @@ p_threshold <- 0.05
 
 fname <- "../results/aldex_t.rds"
 res0 <- readRDS(fname) %>%
-  dplyr::slice(c(5, 9, 12, 14, 15)) # ref: XXL
-  # dplyr::slice(c(1, 2, 3, 4, 5)).   # ref: XS
-  # dplyr::slice(c(1, 6, 10, 13, 15)) # ref: adjacent
+  dplyr::slice(c(4, 7, 9, 10)) # ref: XXL
+  # dplyr::slice(c(1, 2, 3, 4)).   # ref: S
+  # dplyr::slice(c(1, 5, 8, 10)) # ref: adjacent
 
 # join taxonomy with aldex results
-taxonomy <- get_taxonomy(ps_filt)
+taxonomy <- get_taxonomy(ps_genus)
 res <- res0
 res$res <- map(res0$res, ~ .x %>%
     rownames_to_column("OTU") %>%
     inner_join(taxonomy, by = join_by("OTU")) %>%
     dplyr::select(OTU, Family, Genus, diff.btw, diff.win, effect, wi.eBH)
   ) 
-
-# metadata <- get_metadata(ps_filt)
-# reads <- as.data.frame(ps_filt@otu_table)
-# conds <- metadata$size.name
-# clr <- aldex.clr(reads, conds, mc.samples = 128, denom = "all")
-# clr_medians <- as.data.frame(
-#   sapply(clr@analysisData, function(x) apply(x, 1, median))
-# )
-# clr_long <- clr_medians %>%
-#   rownames_to_column("taxon") %>%
-#   pivot_longer(-taxon, names_to = "Sample", values_to = "clr") %>%
-#   left_join(metadata, by = "Sample")
 ```
 # Define significant taxa
 

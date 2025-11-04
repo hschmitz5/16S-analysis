@@ -4,9 +4,7 @@ ps_genus <- readRDS("../data/ps_genus.rds")
 # define sample names
 size <- data.frame(
   ranges = levels(ps_genus@sam_data$size.mm),
-  #c("0-0.85", "0.85-1.4", "1.4-2", "2-2.8", "2.8-4", ">4"), # mm
   name = levels(ps_genus@sam_data$size.name)
-  #c("XS", "S", "M", "L", "XL", "XXL")
 )
 
 # define dimensions of sample grouping 

@@ -16,11 +16,19 @@ pair_samples <- combn(size_name, 2) %>%
   # identify samples that are in each size
   mutate(
     comparison = paste0(size1, "-", size2),
-    samples = map2(size1, size2, ~ metadata 
-                   %>% filter(size.name %in% c(.x, .y)) %>% pull(Sample)),
+    # define sample names in pairwise combination (ordering size1 first)
+    samples = map2(size1, size2, ~ {
+      samples_x <- metadata %>% filter(size.name == .x) %>% pull(Sample)
+      samples_y <- metadata %>% filter(size.name == .y) %>% pull(Sample)
+      c(samples_x, samples_y)
+    }),
+    conds = map(samples, function(samples_in_pair) {
+      # Get conditions
+      conds <- metadata$size.name[match(samples_in_pair, metadata$Sample)]
+    }),
     res = map(samples, function(samples_in_pair) {
       # Subset counts table
-      reads <- as.data.frame(ps_genus@otu_table) %>%
+      reads <- as.data.frame(ps@otu_table) %>%
         dplyr::select(all_of(samples_in_pair))
       # Get conditions
       conds <- metadata$size.name[match(samples_in_pair, metadata$Sample)]
@@ -28,7 +36,7 @@ pair_samples <- combn(size_name, 2) %>%
       aldex(reads, conds, denom = "all", test = "t", effect = TRUE)
     })
   ) %>%
-  dplyr::select(comparison, res)
+  dplyr::select(comparison, conds, res)
 
 saveRDS(pair_samples, file = "./results/aldex_t.rds")
 
