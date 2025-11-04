@@ -10,17 +10,15 @@ output:
     toc_float: yes
 ---
 # Data Import
-```{r}
+```{r get_data}
 # Clear environment
 rm(list = ls())
-
-n_taxa <- 20  # number of taxa to include in the plot 
 
 source("./R/00_setup.R")
 source("./R/01_load_data.R")
 source("./R/02_process_ps.R")
 table_rel_long <- convert_rel(ps_genus)
-#source("./R/03_subset.R")
+source("./R/03_subset.R")
 ```
 ### Differential Abundance
 ```{r child='child_diff_ab_ancom2.Rmd'}

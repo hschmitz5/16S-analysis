@@ -40,7 +40,7 @@ ggplot() +
     expand = expansion(mult = c(0, 0.1))
   ) +
   labs(
-    title = paste("Top", n_asv, "most abundant ASVs"),
+    #title = paste("Top", n_asv, "most abundant ASVs"),
     x = "Genus",
     y = "Mean Relative Abundance [%]",
     fill = "",
@@ -64,7 +64,8 @@ ggplot() +
     legend.margin = margin(2, 2, 2, 2)
   ) +
   coord_flip()
-fname = "../results/genus/abund_avg.png"
+
+fname = "../figures/abund_avg.png"
 ggsave(fname, width = 8, height = 4, dpi = 300)
 ```
 # Rank Abundance Curve with size
@@ -73,7 +74,7 @@ ggsave(fname, width = 8, height = 4, dpi = 300)
 n_display = 3
 
 genus_size2 <- genus_size %>%
-  filter(Genus %in% genus_levels[1:n_display])   
+  filter(Genus %in% genus_names[1:n_display])   
 
 p <- ggplot(genus_size2, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) +
      geom_col(position = position_dodge(width = 0.8), width = 0.7) +
@@ -90,14 +91,14 @@ p <- ggplot(genus_size2, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm)))
        expand = expansion(mult = c(0, 0.1))  # Add 10% space above
      ) +
      labs(
-       title = paste0("Genera = ", n_display, " (ASVs = ", n_asv,")"),  #paste0: no spaces
+       title = paste0("Genera = ", n_display, " (ASVs > ", rel_ab_cutoff,"%)"),  #paste0: no spaces
        x = "Genus",
        y = "Mean Relative Abundance [%]",
      ) +
      theme_minimal(base_size = 16)   # sets text size
 
 # Save plot
-fname <- "../results/genus/abund_size2.png"
+fname <- "../figures/abund_size2.png"
 ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
 
 print(p)
@@ -128,7 +129,7 @@ gs <- table_rel_long %>%
      ) +
     theme_minimal(base_size = 14)   # sets text size
   
-  fname = paste0("./results/genus/genus_",genus_names[i], ".png")
+  fname = paste0("./figures/genus_",genus_names[i], ".png")
   ggsave(fname, width = 9, height = 4, dpi = 300)
 #}
 ```
@@ -154,5 +155,5 @@ gs.group_plot %>%
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance [%]")
 
-ggsave("./results/genus_group.png")
+ggsave("./figures/genus_group.png")
 ```

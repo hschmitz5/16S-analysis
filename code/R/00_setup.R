@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
   library(ComplexHeatmap)
   library(readxl)
   # optional
-  #library(MetBrewer) # fun color palettes
+  library(MetBrewer) # fun color palettes
   #library(vegan)
 })
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
