@@ -112,10 +112,10 @@ It shows the variation from the biological replicates.
 #for (i in 1:length(genus_names)) {
 i <- 2
 
-gs <- table_rel_long %>%
-  filter(Genus %in% genus_names[i], seq %in% seq_names)
+gs <- convert_rel(ps_ASV) %>%
+  filter(Genus %in% genus_names[i], OTU %in% OTU_names)
   gs %>%
-    ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) +
+    ggplot(aes(x = size.mm, y = Abundance, fill = OTU)) +
     geom_point(
       shape = 21,
       color = "black",
@@ -129,7 +129,7 @@ gs <- table_rel_long %>%
      ) +
     theme_minimal(base_size = 14)   # sets text size
   
-  fname = paste0("./figures/genus_",genus_names[i], ".png")
+  fname = paste0("../figures/genus_",genus_names[i], ".png")
   ggsave(fname, width = 9, height = 4, dpi = 300)
 #}
 ```
@@ -138,12 +138,12 @@ gs <- table_rel_long %>%
 This combines multiple genera in subplots
 ```{r plot_scatter_multiple}
 
-gs.group_plot <- table_rel_long %>%
-  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), seq %in% seq_names)
+gs.group_plot <- convert_rel(ps_ASV) %>%
+  filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), OTU %in% OTU_names)
 
 ### plot
 gs.group_plot %>%
-  ggplot(aes(x = size.mm, y = rel_ab, fill = seq)) + 
+  ggplot(aes(x = size.mm, y = Abundance, fill = OTU)) + 
   facet_wrap(~Genus, nrow = 1) +
   geom_point(
     shape = 21,
@@ -155,5 +155,5 @@ gs.group_plot %>%
   xlab("Sieve Range [mm]") +
   ylab("Sum of Relative Abundance [%]")
 
-ggsave("./figures/genus_group.png")
+ggsave("../figures/genus_group.png")
 ```
