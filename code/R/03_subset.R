@@ -1,5 +1,3 @@
-# Many genera have multiple ASVs in which one ASV is almost zero
-# Few have ASVs with a non-negligible abundance
 rel_ab_cutoff <- 0.5 # %
 
 # If a genus has multiple ASVs, they're added together
@@ -33,6 +31,8 @@ genus_size <- genus_sum %>%
   mutate(Genus = factor(Genus, levels = genus_names))
 
 ### If you're interested in ASVs (not agglomerating genera)
+### Many genera have multiple ASVs in which one ASV is almost zero
+### Few have ASVs with a non-negligible abundance
 top_asvs <- convert_rel(ps_ASV) %>%
   filter(!is.na(Genus)) %>%
   group_by(Genus, OTU) %>%
