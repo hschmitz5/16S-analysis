@@ -30,6 +30,8 @@ genus_size <- genus_sum %>%
     .groups = "drop") %>%  
   mutate(Genus = factor(Genus, levels = genus_names))
 
+rm(genus_sum)
+
 ### If you're interested in ASVs (not agglomerating genera)
 ### Many genera have multiple ASVs in which one ASV is almost zero
 ### Few have ASVs with a non-negligible abundance
