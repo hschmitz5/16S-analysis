@@ -2,6 +2,9 @@ rm(list = ls())
 
 library(ALDEx2)
 
+size1 <- c("M", "L", "XL", "XXL")
+size2 <- c("S", "S", "S", "S")     # reference group
+
 ps <- readRDS("./data/ps_genus.rds") 
 size_name <- levels(ps@sam_data$size.name)
 
@@ -9,10 +12,8 @@ metadata <- as.data.frame(as.matrix(ps@sam_data)) %>%
   rownames_to_column("Sample") 
 
 # Generate pairwise combinations
-pair_samples <- combn(size_name, 2) %>%
-  t() %>%
+pair_samples <- cbind(size1, size2) %>%
   as.data.frame(stringsAsFactors = FALSE) %>%
-  rename(size1 = V1, size2 = V2) %>%
   # identify samples that are in each size
   mutate(
     comparison = paste0(size1, "-", size2),
@@ -40,6 +41,12 @@ pair_samples <- combn(size_name, 2) %>%
 
 saveRDS(pair_samples, file = "./results/aldex_t.rds")
 
+# Generate pairwise combinations
+#pair_samples <- combn(size_name, 2) %>%
+#  t() %>%
+#  as.data.frame(stringsAsFactors = FALSE) %>%
+#  rename(size1 = V1, size2 = V2) %>%
+  
 # ---- Kruskal Wallis test ----
 # 
 # reads <- as.data.frame(ps_filt@otu_table)
