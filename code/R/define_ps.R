@@ -21,9 +21,9 @@ ps0 <- qiime2R::qza_to_phyloseq(
 # remove 0-0.85 mm granules
 ps <- subset_samples(ps0, size.mm != "0-0.85")
 
-ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size$ranges, ordered = TRUE)
+ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size$ranges)
 ps@sam_data$size.name <- factor(size$name[as.numeric(ps@sam_data$size.mm)], 
-                                levels = size$name, ordered = TRUE)
+                                levels = size$name)
   
 #### Filter ####
   
