@@ -18,7 +18,7 @@ output <- ancombc2(
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
-  global = TRUE, dunnet = TRUE, trend = TRUE,  
+  global = TRUE, pairwise = TRUE, dunnet = TRUE, trend = TRUE,  
   trend_control = list(contrast = contrast_mats,
                        node = list(4, 4),
                        solver = "ECOS",
