@@ -3,7 +3,19 @@ rm(list = ls())
 library(phyloseq)
 library(ANCOMBC)
 
-ps_genus <- readRDS("../data/ps_genus.rds") 
+# Read in your data
+ps_genus <- readRDS("./data/ps_genus.rds")
+
+# Get taxa names
+taxa_names_all <- taxa_names(ps_genus)
+
+# Randomly sample 150 taxa (or fewer if there aren’t that many)
+n_taxa <- min(150, length(taxa_names_all))
+set.seed(123)  # for reproducibility
+taxa_subset <- sample(taxa_names_all, n_taxa)
+
+# Subset the phyloseq object
+ps_genus_small <- prune_taxa(taxa_subset, ps_genus)
 
 contrast_mats = list(
   # monotonically increasing
@@ -14,9 +26,9 @@ contrast_mats = list(
          nrow = 4, byrow = TRUE)
 )
 
-set.seed(123)
+set.seed(456)  # for reproducibility
 output <- ancombc2(
-  data = ps_genus, 
+  data = ps_genus_small, 
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
@@ -24,7 +36,7 @@ output <- ancombc2(
   trend_control = list(contrast = contrast_mats,
                        node = list(4, 4),
                        solver = "ECOS",
-                       B = 100)
+                       B = 10)
 )
 
-saveRDS(output, file = "../results/ancombc2_genus.rds")
+saveRDS(output, file = "./results/ancombc2_test.rds")

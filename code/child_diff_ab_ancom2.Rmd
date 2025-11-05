@@ -10,7 +10,7 @@ date: "2025-10-23"
 ```{r sig}
 library(ComplexHeatmap)
 
-fname <- "../results/ancombc2_output.rds"
+fname <- "../results/ancombc2_testQ.rds" #output
 output <- readRDS(fname)
 
 taxonomy <- get_taxonomy(ps_ASV)

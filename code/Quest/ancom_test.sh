@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name="ancom"
-#SBATCH --output=ancom-%j.out
-#SBATCH --error=ancom-%j.err
+#SBATCH --job-name="ancom_test"
+#SBATCH --output=ancom_test-%j.out
+#SBATCH --error=ancom_test-%j.err
 #SBATCH -A p31629
 #SBATCH -p normal
 #SBATCH -t 12:00:00
@@ -20,4 +20,4 @@ module load gdal/3.7.0-gcc-12.3.0
 module load nlopt/2.7.1-gcc-12.3.0
 module load cmake/3.26.3-gcc-12.3.0
 
-Rscript /gpfs/projects/b1052/hannah/r/scripts/run_ancombc2.R
+Rscript /gpfs/projects/b1052/hannah/r/scripts/run_ancombc2_test.R
