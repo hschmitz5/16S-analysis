@@ -1,6 +1,8 @@
+rm(list = ls())
+
 library(ANCOMBC)
 
-ps_genus <- readRDS("./ps_genus.rds") 
+ps_genus <- readRDS("./data/ps_genus.rds") 
 
 contrast_mats = list(
   # monotonically increasing
@@ -14,11 +16,10 @@ contrast_mats = list(
 set.seed(123)
 output <- ancombc2(
   data = ps_genus, 
-  tax_level = "Genus",
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
-  global = TRUE, dunnet = TRUE, trend = TRUE,  
+  global = TRUE, pairwise = TRUE, dunnet = TRUE, trend = TRUE,  
   trend_control = list(contrast = contrast_mats,
                        node = list(4, 4),
                        solver = "ECOS",
