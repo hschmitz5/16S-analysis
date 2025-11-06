@@ -5,73 +5,203 @@ date: "2025-10-23"
 ---
 # Load ALDEx2 data and define clr
 ```{r load_data}
+library(ComplexHeatmap)
+library(grid)
+
 effect_threshold <- 1
 p_threshold <- 0.05
 
 fname <- "../results/aldex_t.rds"
-res0 <- readRDS(fname) %>%
-  dplyr::slice(c(1, 2, 3, 4)).   # ref: S
-  # dplyr::slice(c(4, 7, 9, 10)) # ref: XXL
-  # dplyr::slice(c(1, 5, 8, 10)) # ref: adjacent
+res0 <- readRDS(fname) 
 
-# join taxonomy with aldex results
+# Join taxonomy with aldex results
 taxonomy <- get_taxonomy(ps_genus)
-res <- res0
-res$res <- map(res0$res, ~ .x %>%
+res0$res <- map(res0$res, ~ .x %>%
     rownames_to_column("OTU") %>%
     inner_join(taxonomy, by = join_by("OTU")) %>%
     dplyr::select(OTU, Family, Genus, diff.btw, diff.win, effect, wi.eBH)
   ) 
-```
-# Define significant taxa
 
-I need to use the same taxa for all
-```{r sig}
-# add column for number of significant taxa
-res <- res %>%
+# Define names of significant taxa per comparison and count them
+res <- res0 %>%
   mutate(
     sig_taxa = map(res, ~ .x %>%
         filter(wi.eBH < p_threshold & abs(effect) > effect_threshold) %>%
-        pull(OTU)
+        pull(Genus) 
     ),
+    # add column for number of significant taxa
     n_sig = map_dbl(sig_taxa, length)
   )
 
 # names of significant taxa
 all_sig_taxa <- unique(unlist(res$sig_taxa))
+high_ab_taxa <- genus_names[genus_names %in% all_sig_taxa]
+low_ab_taxa <- all_sig_taxa[!all_sig_taxa %in% high_ab_taxa]
+```
 
+# Subset significant taxa and make a matrix for effect
+```{r sig}
 # Combine into wide format
-df_wide <- map2(res$res, res$comparison, ~ .x %>%
-      filter(OTU %in% all_sig_taxa) %>%
+clr_high <- map2(res$res, res$comparison, ~ .x %>%
+      filter(Genus %in% high_ab_taxa) %>%
       mutate(
-        effect_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, effect, 0)
+        clr_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, diff.btw, 0)
       ) %>%
-      dplyr::select(OTU, Family, Genus, effect_update) %>%
-      rename(!! .y := effect_update)
+      dplyr::select(OTU, Family, Genus, clr_update) %>%
+      rename(!! as.character(.y) := clr_update) 
   ) %>%
   reduce(full_join, by = c("OTU", "Family", "Genus")) %>%
   mutate(
-    sum_effect = rowSums(across(all_of(res$comparison), abs), na.rm = TRUE),
-    mean_effect = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
+    sum_clr = rowSums(across(all_of(res$comparison), abs), na.rm = TRUE),
+    mean_clr = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
   ) %>%
-  arrange(desc(mean_effect))
+  arrange(desc(mean_clr))
+
+# Combine into wide format
+clr_low <- map2(res$res, res$comparison, ~ .x %>%
+      filter(Genus %in% low_ab_taxa) %>%
+      mutate(
+        clr_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, diff.btw, 0)
+      ) %>%
+      dplyr::select(OTU, Family, Genus, clr_update) %>%
+      rename(!! as.character(.y) := clr_update) 
+  ) %>%
+  reduce(full_join, by = c("OTU", "Family", "Genus")) %>%
+  mutate(
+    sum_clr = rowSums(across(all_of(res$comparison), abs), na.rm = TRUE),
+    mean_clr = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
+  ) %>%
+  arrange(desc(mean_clr))
+
+### For plotting
+fig_high <- clr_high %>%
+  dplyr::select(-OTU, -Family, -sum_clr, -mean_clr) %>%
+  tibble::column_to_rownames("Genus") %>%
+  as.matrix()
+
+fig_low <- clr_low %>%
+  head(30) %>%
+  dplyr::select(-OTU, -Family, -sum_clr, -mean_clr) %>%
+  tibble::column_to_rownames("Genus") %>%
+  as.matrix()
 ```
 
-# Plot top taxa
-```{r clr}
+# Separate Heatmaps
 
-# top_taxa <- res0$res[[15]] %>%
-#   rownames_to_column("taxon") %>%
-#   filter(wi.eBH < 0.05, abs(effect) > effect_threshold) %>%
-#   #slice_max(abs(effect), n = 10) %>%
-#   pull(taxon)
-# 
-# clr_long %>%
-#   filter(taxon %in% top_taxa) %>%
-#   ggplot(aes(x = size.name, y = clr, color = size.name)) +
-#   geom_point() +
-#   facet_wrap(~ taxon, scales = "free_y") +
-#   theme_minimal() +
-#   labs(x = "Group", y = "CLR abundance")
+```{r low_ab}
+
+# Cell height in inches (adjust as needed)
+cell_h <- 0.2
+cell_w <- 0.6 # same as cell_h
+
+# Font sizes
+row_fontsize <- 10
+col_fontsize <- 11
+
+# --- High Ab taxa ---
+n_cols <- ncol(fig_high)
+n_rows <- nrow(fig_high)
+
+ht_high <- Heatmap(
+  fig_high,
+  name = "clr",
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize),
+  column_names_rot = 0,
+  column_names_centered = TRUE,
+  width  = unit(n_cols * cell_w, "inches"),
+  height = unit(n_rows * cell_h, "inches"),
+  column_title = "High Abundance"
+)
+
+# Define rowname width in first plot
+ht_grob <- draw(ht_high, show_heatmap_legend = FALSE)
+ht1 <- ht_grob@ht_list[[1]]
+fig_props <- ht1@layout$layout_size
+
+rowname_width_in <- convertWidth(
+  fig_props$row_names_right_width,
+  "inches", valueOnly = TRUE
+)
+
+common_width <- n_cols * cell_w + rowname_width_in + 2 # in
+
+
+# --- Low Ab taxa ---
+n_rows <- nrow(fig_low)
+
+ht_low <- Heatmap(
+  fig_low,
+  name = "clr",
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  cluster_columns = FALSE,
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize),
+  column_names_rot = 0,
+  column_names_centered = TRUE,
+  width  = unit(n_cols * cell_w, "inches"),
+  height = unit(n_rows * cell_h, "inches"),
+  # Use same row name width as high abundance
+  row_names_max_width = unit(rowname_width_in, "inches"),
+  column_title = "Low Abundance"
+)
+
+# Save images
+png("../figures/aldex_high_ab.png", 
+    width = common_width,
+    height = n_rows * cell_h + 1,
+    units = "in", res = 300)
+draw(ht_high)
+dev.off()
+
+png("../figures/aldex_low_ab.png", 
+    width = common_width,
+    height = n_rows * cell_h + 1,
+    units = "in", res = 300)
+draw(ht_low)
+dev.off()
+
+
+```
+# Combined Heatmaps
+```{r heatmap}
+
+# High abundance heatmap
+ht_high <- Heatmap(
+  fig_high,
+  name = "Comp. Ab. > 0.5%",
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize),
+  column_names_rot = 0,
+  column_names_centered = TRUE
+)
+
+# Low abundance heatmap
+ht_low <- Heatmap(
+  fig_low,
+  name = "Top low ab",
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  cluster_columns = FALSE,
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize),
+  column_names_rot = 0,
+  column_names_centered = TRUE
+)
+
+ht_list <- ht_high %v% ht_low
+
+# Draw combined heatmap
+png("../figures/aldex_high_low_ab.png",
+    width = 6,  # width in inches; can adjust
+    height = 8, # height in inches; can adjust
+    units = "in", res = 300)
+draw(ht_list)
+dev.off()
 
 ```
