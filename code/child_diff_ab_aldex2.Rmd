@@ -41,14 +41,15 @@ low_ab_taxa <- all_sig_taxa[!all_sig_taxa %in% high_ab_taxa]
 
 # Subset significant taxa and make a matrix for effect
 ```{r sig}
-# Combine into wide format
-clr_high <- map2(res$res, res$comparison, ~ .x %>%
-      filter(Genus %in% high_ab_taxa) %>%
-      mutate(
-        clr_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, diff.btw, 0)
-      ) %>%
-      dplyr::select(OTU, Family, Genus, clr_update) %>%
-      rename(!! as.character(.y) := clr_update) 
+process_clr <- function(df, taxa, p_threshold, effect_threshold) {
+  # Combine into wide format
+  map2(df$res, df$comparison, ~ .x %>%
+    filter(Genus %in% taxa) %>%
+    mutate(
+      clr_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, diff.btw, 0)
+    ) %>%
+    dplyr::select(OTU, Family, Genus, clr_update) %>%
+    rename(!! as.character(.y) := clr_update) 
   ) %>%
   reduce(full_join, by = c("OTU", "Family", "Genus")) %>%
   mutate(
@@ -56,22 +57,11 @@ clr_high <- map2(res$res, res$comparison, ~ .x %>%
     mean_clr = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
   ) %>%
   arrange(desc(mean_clr))
+}
 
-# Combine into wide format
-clr_low <- map2(res$res, res$comparison, ~ .x %>%
-      filter(Genus %in% low_ab_taxa) %>%
-      mutate(
-        clr_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, diff.btw, 0)
-      ) %>%
-      dplyr::select(OTU, Family, Genus, clr_update) %>%
-      rename(!! as.character(.y) := clr_update) 
-  ) %>%
-  reduce(full_join, by = c("OTU", "Family", "Genus")) %>%
-  mutate(
-    sum_clr = rowSums(across(all_of(res$comparison), abs), na.rm = TRUE),
-    mean_clr = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
-  ) %>%
-  arrange(desc(mean_clr))
+# Apply function to high and low abundance taxa
+clr_high <- process_clr(res, high_ab_taxa, p_threshold, effect_threshold)
+clr_low  <- process_clr(res, low_ab_taxa, p_threshold, effect_threshold)
 
 ### For plotting
 fig_high <- clr_high %>%
