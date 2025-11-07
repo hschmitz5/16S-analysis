@@ -56,32 +56,31 @@ process_clr <- function(df, taxa, p_threshold, effect_threshold) {
   map2(df$res, df$comparison, ~ .x %>%
     filter(Genus %in% taxa) %>%
     mutate(
-      clr_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, diff.btw, 0)
+      effect_update = ifelse(wi.eBH < p_threshold & abs(effect) > effect_threshold, effect, 0)
     ) %>%
-    dplyr::select(OTU, Family, Genus, clr_update) %>%
-    rename(!! as.character(.y) := clr_update) 
+    dplyr::select(OTU, Family, Genus, effect_update) %>%
+    rename(!! as.character(.y) := effect_update) 
   ) %>%
   reduce(full_join, by = c("OTU", "Family", "Genus")) %>%
   mutate(
-    sum_clr = rowSums(across(all_of(res$comparison), abs), na.rm = TRUE),
-    mean_clr = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
+    mean_effect = rowMeans(across(all_of(res$comparison), abs), na.rm = TRUE)
   ) %>%
-  arrange(desc(mean_clr))
+  arrange(desc(mean_effect))
 }
 
 # Apply function to high and low abundance taxa
-clr_high <- process_clr(res, high_ab_taxa, p_threshold, effect_threshold)
-clr_low  <- process_clr(res, low_ab_taxa, p_threshold, effect_threshold)
+effect_high <- process_clr(res, high_ab_taxa, p_threshold, effect_threshold)
+effect_low  <- process_clr(res, low_ab_taxa, p_threshold, effect_threshold)
 
 ### For plotting
-fig_high <- clr_high %>%
-  dplyr::select(-OTU, -Family, -sum_clr, -mean_clr) %>%
+fig_high <- effect_high %>%
+  dplyr::select(-OTU, -Family, -mean_clr) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 
-fig_low <- clr_low %>%
+fig_low <- effect_low %>%
   head(30) %>%
-  dplyr::select(-OTU, -Family, -sum_clr, -mean_clr) %>%
+  dplyr::select(-OTU, -Family, -mean_clr) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 ```
@@ -104,7 +103,7 @@ n_rows <- nrow(fig_high)
 
 ht_high <- Heatmap(
   fig_high,
-  name = "clr",
+  name = "effect",
   show_row_names = TRUE,
   show_column_names = TRUE,
   row_names_gp = gpar(fontsize = row_fontsize),
@@ -134,7 +133,7 @@ n_rows <- nrow(fig_low)
 
 ht_low <- Heatmap(
   fig_low,
-  name = "clr",
+  name = "effect",
   show_row_names = TRUE,
   show_column_names = TRUE,
   cluster_columns = FALSE,
