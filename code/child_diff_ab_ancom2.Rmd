@@ -108,7 +108,7 @@ n_rows <- nrow(fig_high)
 
 ht_high <- Heatmap(
   fig_high,
-  name = "lfc",
+  name = "log fold\nchange",
   show_row_names = TRUE,
   show_column_names = TRUE,
   cluster_columns = FALSE,
@@ -140,7 +140,7 @@ n_rows <- nrow(fig_low)
 
 ht_low <- Heatmap(
   fig_low,
-  name = "lfc",
+  name = "log fold\nchange",
   show_row_names = TRUE,
   show_column_names = TRUE,
   cluster_columns = FALSE,
@@ -176,9 +176,10 @@ dev.off()
 # High abundance heatmap
 ht_high <- Heatmap(
   fig_high,
-  name = "Comp. Ab. > 0.5%",
+  name = "High Ab\nlog fold\nchange",
   show_row_names = TRUE,
   show_column_names = TRUE,
+  cluster_columns = FALSE,
   row_names_gp = gpar(fontsize = row_fontsize),
   column_names_gp = gpar(fontsize = col_fontsize),
   column_names_rot = 0,
@@ -188,7 +189,7 @@ ht_high <- Heatmap(
 # Low abundance heatmap
 ht_low <- Heatmap(
   fig_low,
-  name = "Top low ab",
+  name = "Low Ab\nlog fold\nchange",
   show_row_names = TRUE,
   show_column_names = TRUE,
   cluster_columns = FALSE,
@@ -207,31 +208,5 @@ png("../figures/ancom_high_low_ab.png",
     units = "in", res = 300)
 draw(ht_list)
 dev.off()
-
-```
-
-# Bias corrected abundance
-```{r bc}
-bc_out <- output$bias_correct_log_table
-metadata <- get_metadata(ps_genus)
-
-bc_long <- bc_out %>%
-  rownames_to_column("OTU") %>%
-  pivot_longer(-OTU, names_to = "Sample", values_to = "bc_abund") %>%
-  inner_join(taxonomy, by = "OTU") %>%
-  inner_join(metadata, by = "Sample") %>%
-  dplyr::select(Sample, Genus, bc_abund, size.name, size.mm) 
-
-# can't have boxplot with 3 data points
-ggplot(bc_long %>% filter(Genus %in% high_ab_taxa),
-       aes(x = size.name, y = bc_abund, color = size.mm)) +
-  geom_point() +
-  facet_wrap(~ Genus, scales = "free_y") +
-  theme_bw() +
-  labs(
-    x = "Size class",
-    y = "Bias-corrected abundance",
-    title = "Differential abundance patterns across size classes"
-  )
 
 ```

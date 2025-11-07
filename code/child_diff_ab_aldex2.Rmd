@@ -74,13 +74,13 @@ effect_low  <- process_clr(res, low_ab_taxa, p_threshold, effect_threshold)
 
 ### For plotting
 fig_high <- effect_high %>%
-  dplyr::select(-OTU, -Family, -mean_clr) %>%
+  dplyr::select(-OTU, -Family, -mean_effect) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 
 fig_low <- effect_low %>%
   head(30) %>%
-  dplyr::select(-OTU, -Family, -mean_clr) %>%
+  dplyr::select(-OTU, -Family, -mean_effect) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 ```
@@ -171,7 +171,7 @@ dev.off()
 # High abundance heatmap
 ht_high <- Heatmap(
   fig_high,
-  name = "Comp. Ab. > 0.5%",
+  name = "High Ab\neffect",
   show_row_names = TRUE,
   show_column_names = TRUE,
   row_names_gp = gpar(fontsize = row_fontsize),
@@ -183,7 +183,7 @@ ht_high <- Heatmap(
 # Low abundance heatmap
 ht_low <- Heatmap(
   fig_low,
-  name = "Top low ab",
+  name = "Low Ab\neffect",
   show_row_names = TRUE,
   show_column_names = TRUE,
   cluster_columns = FALSE,
