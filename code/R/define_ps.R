@@ -22,8 +22,7 @@ ps0 <- qiime2R::qza_to_phyloseq(
 ps <- subset_samples(ps0, size.mm != "0-0.85")
 
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size$ranges)
-ps@sam_data$size.name <- factor(size$name[as.numeric(ps@sam_data$size.mm)], 
-                                levels = size$name)
+ps@sam_data$size.name <- factor(size$name[as.numeric(ps@sam_data$size.mm)], levels = size$name)
   
 #### Filter ####
   

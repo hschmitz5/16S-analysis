@@ -5,6 +5,7 @@ date: "2025-10-23"
 ---
 # Load ALDEx2 data and define clr
 ```{r load_data}
+library(writexl)
 library(ComplexHeatmap)
 library(grid)
 
@@ -37,6 +38,15 @@ res <- res0 %>%
 all_sig_taxa <- unique(unlist(res$sig_taxa))
 high_ab_taxa <- genus_names[genus_names %in% all_sig_taxa]
 low_ab_taxa <- all_sig_taxa[!all_sig_taxa %in% high_ab_taxa]
+
+# Make a single data frame with two columns
+taxa_df <- data.frame(
+  high_abundance = c(sort(high_ab_taxa), rep(NA, length(low_ab_taxa) - length(high_ab_taxa))),
+  low_abundance  = sort(low_ab_taxa)
+)
+
+# Write to Excel
+write_xlsx(taxa_df, path = "../results/ALDEx2_taxa.xlsx")
 ```
 
 # Subset significant taxa and make a matrix for effect

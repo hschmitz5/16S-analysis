@@ -40,23 +40,3 @@ pair_samples <- cbind(size1, size2) %>%
   dplyr::select(comparison, conds, res)
 
 saveRDS(pair_samples, file = "./results/aldex_t.rds")
-
-# Generate pairwise combinations
-#pair_samples <- combn(size_name, 2) %>%
-#  t() %>%
-#  as.data.frame(stringsAsFactors = FALSE) %>%
-#  rename(size1 = V1, size2 = V2) %>%
-  
-# ---- Kruskal Wallis test ----
-# 
-# reads <- as.data.frame(ps_filt@otu_table)
-# conds <- metadata$size.name
-# 
-# x <- aldex.clr(reads, conds, mc.samples=128, denom="all")
-# kw.test <- aldex.kw(x)
-# 
-# saveRDS(x, file = "../results/aldex_clr_result.rds")
-# saveRDS(kw.test, file = "../results/aldex_kw_result.rds")
-#
-# sig_features <- kw.test %>%
-#   filter(kw.eBH < 0.1 & kw.ep < 0.05)
