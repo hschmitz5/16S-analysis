@@ -213,18 +213,20 @@ dev.off()
 # Bias corrected abundance
 ```{r bc}
 bc_out <- output$bias_correct_log_table
-metadata <- get_metadata(ps_filt)
+metadata <- get_metadata(ps_genus)
 
 bc_long <- bc_out %>%
-  rownames_to_column("taxon") %>%
-  pivot_longer(-taxon, names_to = "Sample", values_to = "bc_abund") %>%
-  left_join(metadata, by = "Sample")
+  rownames_to_column("OTU") %>%
+  pivot_longer(-OTU, names_to = "Sample", values_to = "bc_abund") %>%
+  inner_join(taxonomy, by = "OTU") %>%
+  inner_join(metadata, by = "Sample") %>%
+  dplyr::select(Sample, Genus, bc_abund, size.name, size.mm) 
 
 # can't have boxplot with 3 data points
-ggplot(bc_long %>% filter(taxon %in% res_global_filt$OTU),
-       aes(x = size.mm, y = bc_abund, color = size.mm)) +
+ggplot(bc_long %>% filter(Genus %in% high_ab_taxa),
+       aes(x = size.name, y = bc_abund, color = size.mm)) +
   geom_point() +
-  facet_wrap(~ taxon, scales = "free_y") +
+  facet_wrap(~ Genus, scales = "free_y") +
   theme_bw() +
   labs(
     x = "Size class",
