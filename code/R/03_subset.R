@@ -19,7 +19,7 @@ get_size_genus <- function(ps_genus){
   # Average per Genus across replicates
   genus_size <- convert_rel(ps_genus) %>%
     filter(Genus %in% genus_names) %>%
-    group_by(Genus, size.mm) %>%
+    group_by(Genus, size.mm, size.name) %>%
     summarise(
       mean_ab = mean(Abundance),
       sd_ab = sd(Abundance),
