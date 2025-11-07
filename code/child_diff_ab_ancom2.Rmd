@@ -69,7 +69,6 @@ process_lfc <- function(df, taxa) {
     ) %>%
     dplyr::select(OTU, Genus, M, L, XL, XXL) %>%
     mutate(
-      sum_effect  = rowSums(across(M:XXL, abs), na.rm = TRUE),
       mean_effect = rowMeans(across(M:XXL, abs), na.rm = TRUE)
     ) %>%
     rename_with(~ paste0(., "-S"), c("M", "L", "XL", "XXL")) %>%
@@ -82,13 +81,13 @@ lfc_low  <- process_lfc(res_prim, low_ab_taxa)
 
 ### For plotting
 fig_high <- lfc_high %>%
-  dplyr::select(-OTU, -sum_effect, -mean_effect) %>%
+  dplyr::select(-OTU, -mean_effect) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 
 fig_low <- lfc_low %>%
   head(30) %>%
-  dplyr::select(-OTU, -sum_effect, -mean_effect) %>%
+  dplyr::select(-OTU, -mean_effect) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 ```
