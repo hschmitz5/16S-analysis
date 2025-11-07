@@ -1,5 +1,3 @@
-rel_ab_cutoff <- 0.5 # %
-
 # ps_genus must be agglomerated to genus level
 get_avg_genus <- function(ps_genus){
   # Average per Genus across all samples
