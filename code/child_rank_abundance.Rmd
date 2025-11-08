@@ -106,11 +106,8 @@ ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
 print(p)
 ```
 ```{r stacked}
-# Number of genus to display by size
-n_display <- 10
-
-genus_size <- get_size_genus(ps_genus) %>%
-  filter(Genus %in% genus_names[1:n_display])   
+genus_size <- get_size_genus(ps_genus) 
+n_display <- length(unique(genus_size$Genus))
 
 p <- ggplot(genus_size, aes(x = size.name, y = mean_ab, fill = fct_rev(Genus))) +
   geom_col(width = 0.7) +  # stacked by default
