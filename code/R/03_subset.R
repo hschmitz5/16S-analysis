@@ -18,18 +18,22 @@ get_avg_genus <- function(ps_genus){
 get_size_genus <- function(ps_genus){
   n_display <- 10 # shown in stacked bar plot
   
-  table_rel_new <- convert_rel(ps_genus) %>%
-    mutate(
-      Genus = ifelse(Genus %in% genus_names[1:n_display], Genus, "Other")
-    )
-  
   # Average per Genus across replicates
-  genus_size <- table_rel_new %>%
+  genus_size <- convert_rel(ps_genus) %>%
     group_by(Genus, size.mm, size.name) %>%
     summarise(
       mean_ab = mean(Abundance),
       sd_ab = sd(Abundance),
       .groups = "drop") %>%  
+    mutate(
+      Genus = ifelse(Genus %in% genus_names[1:n_display], Genus, "Other")
+    ) %>%
+    group_by(Genus, size.mm, size.name) %>%
+    summarise(
+      mean_ab = sum(mean_ab),
+      sd_ab = ifelse(unique(Genus) == "Other", NA_real_, sd_ab),
+      .groups = "drop"
+    ) %>%
     mutate(Genus = factor(Genus, levels = c(genus_names, "Other")))
   
   return(genus_size)
