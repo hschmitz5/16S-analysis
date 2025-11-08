@@ -70,6 +70,33 @@ ggplot() +
 fname = "../figures/abund_avg.png"
 ggsave(fname, width = 8, height = 4, dpi = 300)
 ```
+# Stacked Bar Plot
+```{r stacked}
+genus_size <- get_size_genus(ps_genus) 
+n_display <- length(unique(genus_size$Genus)) - 1
+
+p <- ggplot(genus_size, aes(x = size.name, y = mean_ab, fill = fct_rev(Genus))) +
+  geom_col(width = 0.7) +  # stacked by default
+  scale_fill_manual(
+    values = c("gray", met.brewer("Hiroshige", n_display)),
+    name = "Genera"
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.1))  # Add 10% space above
+  ) +
+  labs(
+    # title = paste0("Genera = ", n_display),
+    x = "Size",
+    y = "Mean Relative Abundance [%]"
+  ) +
+  theme_minimal(base_size = 16)
+
+# Save plot
+fname <- "../figures/abund_size_stacked.png"
+ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
+
+print(p)
+```
 # Rank Abundance Curve with size
 ```{r rank_abundance_size}
 # Number of genus to display by size
@@ -101,32 +128,6 @@ p <- ggplot(genus_size, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) 
 
 # Save plot
 fname <- "../figures/abund_size_error.png"
-ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
-
-print(p)
-```
-```{r stacked}
-genus_size <- get_size_genus(ps_genus) 
-n_display <- length(unique(genus_size$Genus))
-
-p <- ggplot(genus_size, aes(x = size.name, y = mean_ab, fill = fct_rev(Genus))) +
-  geom_col(width = 0.7) +  # stacked by default
-  scale_fill_manual(
-    values = met.brewer("Hiroshige", n_display),
-    name = "Genera"
-  ) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0, 0.1))  # Add 10% space above
-  ) +
-  labs(
-    # title = paste0("Genera = ", n_display),
-    x = "Size",
-    y = "Mean Relative Abundance [%]"
-  ) +
-  theme_minimal(base_size = 16)
-
-# Save plot
-fname <- "../figures/abund_size_stacked.png"
 ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
 
 print(p)
