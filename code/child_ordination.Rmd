@@ -1,34 +1,23 @@
 ---
 title: "child_ordination"
 output: html_document
-date: "2025-10-24"
+date: "2025-11-10"
 ---
-# Ordination - NMDS
-tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
+# tutorial: https://joey711.github.io/phyloseq/plot_ordination-examples.html
+```{r ordination}
+fname <- "../figures/ordination-PCoA.png"
 
-```{r ordination-nmds}
-cols <- met.brewer("Hiroshige", n_sizes) 
+cols <- met.brewer(size_pal, n_sizes) 
 
-ps.ord <- ordinate(ps_filt, "NMDS", "bray")
-p1 <- plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="NMDS") + 
-  scale_color_manual(values=cols)  +
-  labs(color = "Size [mm]") +
-  theme_minimal(base_size = 14)   # sets text size
-  
-print(p1)
+ps.ord <- ordinate(ps_ASV, "PCoA", "unifrac")
 
-ggsave("./results/ordination-NMDS.png", plot = p1, scale = 1,dpi = 300)
-```
-
-# Ordination - PCoA
-
-```{r ordination-pcoa}
-ps.ord <- ordinate(ps_filt, "PCoA", "unifrac")
-p1 <- plot_ordination(ps_filt, ps.ord, type="samples", color="size.mm", title="PCoA") + 
+p1 <- plot_ordination(ps_ASV, ps.ord, type="samples", color="size.mm", title="PCoA") + 
   scale_color_manual(values=cols) + 
   labs(color = "Size [mm]") +
   theme_minimal(base_size = 14)   # sets text size
 
-print(p1)
-ggsave("./results/ordination-PCoA.png", plot = p1, scale = 1,dpi = 300)
+ggsave(fname, plot = p1, width = 6, height = 4, dpi = 300)
+
+# Alternative
+# ps.ord <- ordinate(ps_filt, "NMDS", "bray")
 ```

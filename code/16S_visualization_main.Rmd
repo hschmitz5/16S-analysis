@@ -16,26 +16,33 @@ rm(list = ls())
 
 # Relative Abundance Cutoff (%) used to subset high abundance taxa
 rel_ab_cutoff <- 0.5 
+# p-value used for filtering taxa
+p_threshold   <- 0.05
+
+# Color Palettes (MetBrewer)
+size_pal <- "Java"
+taxa_pal <- "Hiroshige"
 
 source("./R/00_setup.R")
 source("./R/01_load_data.R")
 source("./R/02_process_ps.R")
 source("./R/03_subset.R")
 source("./R/04_subset_DA.R")
-common_taxa <- get_common_taxa(ancom_fname, aldex_fname, high_ab_genera)
+
+# ANCOM taxa
+all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold, write2excel = FALSE)
+DA_taxa <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
+# Common taxa (ANCOM & ALDEx)
+# DA_taxa <- get_common_taxa(ancom_fname, aldex_fname, p_threshold, effect_threshold, high_ab_genera)
 ```
 
-# Correlation
+# Correlation to Spring Pot Coefficient
 ```{r statistics}
 source("./R/bias_correct.R")
-bc_rel <- get_bc_abund(ancom_fname)
-bc_rel_filt <- bc_rel %>%
-  filter(Genus %in% common_taxa) %>%
+bc_wide <- get_bc_abund(ancom_fname) %>%
+  filter(Genus %in% DA_taxa) %>%
   group_by(Genus, size.name) %>%
-  summarise(mean_ab = mean(bc_abund),
-            sd_ab = sd(bc_abund))
-# Average Abundance per size
-bc_wide <- bc_rel_filt %>%
+  summarise(mean_ab = mean(bc_abund), sd_ab = sd(bc_abund)) %>%
   dplyr::select(Genus, size.name, mean_ab) %>%
   pivot_wider(
     names_from = size.name,
@@ -43,17 +50,65 @@ bc_wide <- bc_rel_filt %>%
   ) %>%
   column_to_rownames("Genus") %>%
   as.matrix()
+
 # Correlation
-res1 <- cor.test(bc_wide[1,], mu, method = "spearman")
-res2 <- cor.test(bc_wide[2,], mu, method = "spearman")
-res3 <- cor.test(bc_wide[3,], mu, method = "spearman")
-res4 <- cor.test(bc_wide[4,], mu, method = "spearman")
-res5 <- cor.test(bc_wide[5,], mu, method = "spearman") # 0.08 Novosphingobium
-res6 <- cor.test(bc_wide[6,], mu, method = "spearman") # 0.02 Thiothrix
+corr_mu <- map_dfr(1:nrow(bc_wide), function(i) {
+  res <- cor.test(bc_wide[i, ], mu, method = "spearman")
+  tibble(
+    Genus = rownames(bc_wide)[i],
+    # correlation coefficient (+ increasing, - decreasing)
+    estimate = res$estimate, 
+    p.value = res$p.value
+  ) %>%
+  filter(p.value < p_threshold)
+})
+
+print(corr_mu)
+
+# # Relative Abundance
+# rel_wide <- get_rel_genus(ps_ASV) %>%
+#   filter(Genus %in% res_df$Genus) %>%
+#   group_by(Genus, size.name) %>%
+#   summarise(mean_ab = mean(Abundance), sd_ab = sd(Abundance)) %>%
+#   dplyr::select(Genus, size.name, mean_ab) %>%  
+#   pivot_wider(
+#     names_from = size.name,
+#     values_from = mean_ab
+#   ) %>%
+#   column_to_rownames("Genus") %>%
+#   as.matrix() 
 ```
-### Differential Abundance
-```{r child='child_heatmaps_DA_ancom.Rmd'}
+# Correlation to EPS
+```{r stats_eps}
+corr_tb <- map_dfr(1:nrow(bc_wide), function(i) {
+  res <- cor.test(bc_wide[i, ], eps$TB.avg, method = "spearman")
+  tibble(
+    Genus = rownames(bc_wide)[i],
+    # correlation coefficient (+ increasing, - decreasing)
+    estimate = res$estimate, 
+    p.value = res$p.value
+  ) %>%
+  filter(p.value < p_threshold)
+})
+
+print(corr_tb)
+
+# corr_lb <- map_dfr(1:nrow(bc_wide), function(i) {
+#   res <- cor.test(bc_wide[i, ], eps$LB.avg, method = "spearman")
+#   tibble(
+#     Genus = rownames(bc_wide)[i],
+#     # correlation coefficient (+ increasing, - decreasing)
+#     estimate = res$estimate, 
+#     p.value = res$p.value
+#   ) %>%
+#   filter(p.value < p_threshold)
+# })
+# 
+# print(corr_lb)
 ```
-### Rank Abundance
-```{r child='child_rank_abundance.Rmd'}
+
+### Plots
+```{r make_plots}
+source("./R/plot_ordination.R")
+
 ```

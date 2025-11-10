@@ -8,8 +8,9 @@ date: "2025-10-24"
 
 ```{r diversity_plot}
 div_type = c("Shannon")
+filename <- paste0("../figures/diversity_", div_type, ".png")
 
-p <- plot_richness(ps_filt, x = "size.mm", measures = div_type) +
+p <- plot_richness(ps_ASV, x = "size.mm", measures = div_type) +
   geom_point(size=2) +
   labs(
     title = div_type,
@@ -17,10 +18,8 @@ p <- plot_richness(ps_filt, x = "size.mm", measures = div_type) +
   ) +
   theme_minimal(base_size = 14) +
   theme(strip.text = element_blank()) # removes default title
-  #theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust = 1))
 
 # Save the plot
-filename <- paste0("./results/diversity/diversity_", div_type, ".png")
 ggsave(filename, plot = p, width = 6, height = 4, dpi = 300)
 print(p)
 
@@ -29,12 +28,19 @@ print(p)
 # Faith's Phylogenetic Diversity Index
 
 ```{r diversity_Faith}
-comm <- t(table_abs) # transpose 
-phy <- ps_filt@phy_tree
+library(picante)
+
+metadata <- get_metadata(ps_ASV)
+
+comm <- as.data.frame(as.matrix(ps_ASV@otu_table)) %>%
+  t() 
+
+phy <- ps_ASV@phy_tree
 
 pd_results <- pd(comm, phy) %>%
-  rownames_to_column(var = "sample") %>%
-  left_join(metadata, join_by(sample))
+  rownames_to_column(var = "Sample") %>%
+  left_join(metadata, join_by(Sample))
+
 head(pd_results)
 
 # plot
@@ -48,6 +54,6 @@ pd_results %>%
     ) +
     theme_minimal(base_size = 14)   # sets text size
 
-filename <- paste0("../results/diversity/diversity_Faith.png")
+filename <- paste0("../figures/diversity_Faith.png")
 ggsave(filename, width = 6, height = 4, dpi = 300)
 ```

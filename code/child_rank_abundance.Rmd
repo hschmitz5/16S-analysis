@@ -77,7 +77,7 @@ n_display <- length(unique(genus_size$Genus)) - 1
 p <- ggplot(genus_size, aes(x = size.name, y = mean_ab, fill = fct_rev(Genus))) +
   geom_col(width = 0.7) +  # stacked by default
   scale_fill_manual(
-    values = c("gray", met.brewer("Hiroshige", n_display)),
+    values = c("gray", met.brewer(taxa_pal, n_display)),
     name = "Genera"
   ) +
   scale_y_continuous(
@@ -112,7 +112,7 @@ p <- ggplot(genus_size, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) 
        position = position_dodge(width = 0.8)
      ) +
      scale_fill_manual(
-      values = met.brewer("Java", n_sizes),
+      values = met.brewer(size_pal, n_sizes),
       name = "Size [mm]"
      ) +
      scale_y_continuous(

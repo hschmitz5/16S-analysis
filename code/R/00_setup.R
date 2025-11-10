@@ -2,7 +2,6 @@ suppressPackageStartupMessages({
   # ---- Packages ----
   library(tidyverse)
   library(phyloseq)
-  #library(picante)
   #library(indicspecies)
   library(ComplexHeatmap)
   library(readxl)
