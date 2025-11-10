@@ -15,7 +15,7 @@ library(grid)
 write2excel <- FALSE
 
 # names of significant taxa
-all_sig_taxa <- get_ancom_taxa(ancom_fname, high_ab_genera, write2excel)
+all_sig_taxa <- get_ancom_taxa(ancom_fname, p_threshold, high_ab_genera, write2excel)
 high_DA_taxa <- high_ab_genera[high_ab_genera %in% all_sig_taxa]
 low_DA_taxa <- all_sig_taxa[!all_sig_taxa %in% high_DA_taxa]
 ```

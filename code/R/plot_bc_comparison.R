@@ -6,7 +6,7 @@ library(ggplot2)
 library(patchwork)
 
 # names of significant taxa
-all_taxa_ancom <- get_ancom_taxa(ancom_fname, write2excel = FALSE)
+all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold, write2excel = FALSE)
 high_ab_taxa <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
 
 # Load Data
