@@ -12,7 +12,7 @@ library(writexl)
 library(ComplexHeatmap)
 library(grid)
 
-write2excel <- TRUE
+write2excel <- FALSE
 
 # names of significant taxa
 all_sig_taxa <- get_ancom_taxa(ancom_fname, high_ab_genera, write2excel)

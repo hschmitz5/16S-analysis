@@ -11,7 +11,7 @@ library(grid)
 
 p_threshold      <- 0.05
 effect_threshold <- 1
-write2excel      <- TRUE
+write2excel      <- FALSE
 
 all_sig_taxa <- get_aldex_taxa(aldex_fname, p_threshold, effect_threshold, high_ab_genera, write2excel)
 high_DA_taxa <- high_ab_genera[high_ab_genera %in% all_sig_taxa]
@@ -77,6 +77,7 @@ ht_high <- Heatmap(
   fig_high,
   name = "effect",
   column_title = "High Abundance",
+  cluster_columns = FALSE,
   show_row_names = TRUE,
   show_column_names = TRUE,
   column_names_rot = 0,
@@ -145,6 +146,7 @@ dev.off()
 ht_high <- Heatmap(
   fig_high,
   name = "High Ab\neffect",
+  cluster_columns = FALSE,
   show_row_names = TRUE,
   show_column_names = TRUE,
   column_names_rot = 0,
