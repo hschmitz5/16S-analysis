@@ -5,6 +5,8 @@ date: "2025-11-08"
 ---
 # Define relative abundance for all High Ab Taxa
 ```{r all_high}
+# DA_taxa <- get_common_taxa(ancom_fname, aldex_fname, high_ab_genera)
+
 table_rel_long <- get_rel_genus(ps_ASV) %>%
   filter(Genus %in% high_ab_genera) 
 
@@ -31,10 +33,10 @@ top_annot <- HeatmapAnnotation(
 )
 
 # Create a vector for fontface based on whether the taxon is common
-row_fontface <- ifelse(rownames(rel_wide) %in% common_taxa, "bold", "plain")
+row_fontface <- ifelse(rownames(rel_wide) %in% DA_taxa, "bold", "plain")
 
 ```
-# Plot
+# Plot all high abundance taxa
 ```{r heat_all}
 # Cell height in inches (adjust as needed)
 cell_h <- 0.2
@@ -76,12 +78,12 @@ dev.off()
 print(ht)
 ```
 
-# Common Taxa Only
-```{r common_taxa}
+# DA Taxa Only
+```{r DA_taxa}
 
 rel_common <- as.data.frame(rel_wide) %>%
   rownames_to_column(var = "Genus") %>%
-  filter(Genus %in% common_taxa) %>%
+  filter(Genus %in% DA_taxa) %>%
   column_to_rownames(var = "Genus")
   
 n_rows <- nrow(rel_common)
@@ -105,7 +107,7 @@ ht <- Heatmap(
 )
 
 # Save images
-png("../figures/common_taxa.png", 
+png("../figures/DA_taxa.png", 
     width = n_cols * cell_w + 4,
     height = n_rows * cell_h + 1,
     units = "in", res = 300)
