@@ -6,7 +6,7 @@
 #SBATCH -p normal
 #SBATCH -t 12:00:00
 #SBATCH -N 1
-#SBATCH --ntasks=8
+#SBATCH --ntasks=1
 #SBATCH --mem=4G
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=hannahschmitz2026@u.northwestern.edu
