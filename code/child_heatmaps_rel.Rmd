@@ -7,10 +7,8 @@ date: "2025-11-08"
 ```{r all_high}
 # DA_taxa <- get_common_taxa(ancom_fname, aldex_fname, high_ab_genera)
 
-table_rel_long <- get_rel_genus(ps_ASV) %>%
-  filter(Genus %in% high_ab_genera) 
-
-rel_wide <- table_rel_long %>%
+rel_wide <- get_rel_genus(ps_ASV) %>%
+  filter(Genus %in% high_ab_genera) %>%
   dplyr::select(Genus, Sample, Abundance) %>%  
   pivot_wider(
     names_from = Sample,
