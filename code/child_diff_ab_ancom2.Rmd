@@ -12,52 +12,16 @@ library(writexl)
 library(ComplexHeatmap)
 library(grid)
 
-fname <- "../results/ancombc2_genus.rds" 
-output <- readRDS(fname)
-
-taxonomy <- get_taxonomy(ps_genus)
-
-# Results by group
-res_prim = output$res %>%
-  rename(OTU = 1) %>%
-  inner_join(taxonomy, by = "OTU") %>%
-  dplyr::select(OTU, Genus, everything())
-
-num_sig <- c(
-  M   = sum(res_prim$diff_size.nameM & res_prim$passed_ss_size.nameM, na.rm = TRUE),
-  L   = sum(res_prim$diff_size.nameL & res_prim$passed_ss_size.nameL, na.rm = TRUE),
-  XL  = sum(res_prim$diff_size.nameXL & res_prim$passed_ss_size.nameXL, na.rm = TRUE),
-  XXL = sum(res_prim$diff_size.nameXXL & res_prim$passed_ss_size.nameXXL, na.rm = TRUE)
-)
-
-all_sig_taxa <- res_prim %>%
-  pivot_longer(
-    cols = matches("diff_size\\.name|passed_ss_size\\.name"),
-    names_to = c(".value","size"),
-    names_pattern = "(diff|passed_ss)_size\\.name(.*)"
-  ) %>%
-  filter(diff & passed_ss) %>%
-  pull(Genus) %>%
-  unique()
+write2excel <- TRUE
 
 # names of significant taxa
-high_ab_taxa <- genus_names[genus_names %in% all_sig_taxa]
-low_ab_taxa <- all_sig_taxa[!all_sig_taxa %in% high_ab_taxa]
-
-# --- Write Data to Excel
-
-# Make a single data frame with two columns
-taxa_df <- data.frame(
-  high_abundance = c(sort(high_ab_taxa), rep(NA, length(low_ab_taxa) - length(high_ab_taxa))),
-  low_abundance  = sort(low_ab_taxa)
-)
-
-# Write to Excel
-write_xlsx(taxa_df, path = "../results/ANCOM_taxa.xlsx")
+all_sig_taxa <- get_ancom_taxa(ancom_fname, high_ab_genera, write2excel)
+high_DA_taxa <- high_ab_genera[high_ab_genera %in% all_sig_taxa]
+low_DA_taxa <- all_sig_taxa[!all_sig_taxa %in% high_DA_taxa]
 ```
 
 # Subset significant taxa and make a matrix for effect
-```{r sig}
+```{r format}
 process_lfc <- function(df, taxa) {
   df %>%
     filter(Genus %in% taxa) %>%
@@ -67,7 +31,7 @@ process_lfc <- function(df, taxa) {
       XL  = ifelse(diff_size.nameXL  & passed_ss_size.nameXL,  round(lfc_size.nameXL, 2), 0),
       XXL = ifelse(diff_size.nameXXL & passed_ss_size.nameXXL, round(lfc_size.nameXXL, 2), 0)
     ) %>%
-    dplyr::select(OTU, Genus, M, L, XL, XXL) %>%
+    dplyr::select(Genus, M, L, XL, XXL) %>%
     mutate(
       mean_effect = rowMeans(across(M:XXL, abs), na.rm = TRUE)
     ) %>%
@@ -75,19 +39,22 @@ process_lfc <- function(df, taxa) {
     arrange(desc(mean_effect))
 }
 
+output <- readRDS(ancom_fname)
+res_prim = output$res %>% rename(Genus = taxon)
+
 # Apply function to high and low abundance taxa
-lfc_high <- process_lfc(res_prim, high_ab_taxa)
-lfc_low  <- process_lfc(res_prim, low_ab_taxa)
+lfc_high <- process_lfc(res_prim, high_DA_taxa)
+lfc_low  <- process_lfc(res_prim, low_DA_taxa)
 
 ### For plotting
 fig_high <- lfc_high %>%
-  dplyr::select(-OTU, -mean_effect) %>%
+  dplyr::select(-mean_effect) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 
 fig_low <- lfc_low %>%
   head(30) %>%
-  dplyr::select(-OTU, -mean_effect) %>%
+  dplyr::select(-mean_effect) %>%
   tibble::column_to_rownames("Genus") %>%
   as.matrix()
 ```
@@ -109,17 +76,17 @@ n_rows <- nrow(fig_high)
 ht_high <- Heatmap(
   fig_high,
   name = "log fold\nchange",
+  column_title = "High Abundance",
+  cluster_columns = FALSE,
   show_row_names = TRUE,
   show_column_names = TRUE,
-  cluster_columns = FALSE,
-  row_names_gp = gpar(fontsize = row_fontsize),
-  column_names_gp = gpar(fontsize = col_fontsize),
   column_names_rot = 0,
   column_names_centered = TRUE,
-  # optional
+  # size
   width  = unit(n_cols * cell_w, "inches"),
   height = unit(n_rows * cell_h, "inches"),
-  column_title = "High Abundance"
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize)
 )
 
 # Define rowname width in first plot
@@ -141,18 +108,18 @@ n_rows <- nrow(fig_low)
 ht_low <- Heatmap(
   fig_low,
   name = "log fold\nchange",
+  column_title = "Low Abundance",
+  cluster_columns = FALSE,
   show_row_names = TRUE,
   show_column_names = TRUE,
-  cluster_columns = FALSE,
-  row_names_gp = gpar(fontsize = row_fontsize),
-  column_names_gp = gpar(fontsize = col_fontsize),
   column_names_rot = 0,
   column_names_centered = TRUE,
+  # size
   width  = unit(n_cols * cell_w, "inches"),
   height = unit(n_rows * cell_h, "inches"),
-  # Use same row name width as high abundance
-  row_names_max_width = unit(rowname_width_in, "inches"),
-  column_title = "Low Abundance"
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize),
+  row_names_max_width = unit(rowname_width_in, "inches")
 )
 
 # Save images
@@ -177,26 +144,26 @@ dev.off()
 ht_high <- Heatmap(
   fig_high,
   name = "High Ab\nlog fold\nchange",
+  cluster_columns = FALSE,
   show_row_names = TRUE,
   show_column_names = TRUE,
-  cluster_columns = FALSE,
-  row_names_gp = gpar(fontsize = row_fontsize),
-  column_names_gp = gpar(fontsize = col_fontsize),
   column_names_rot = 0,
-  column_names_centered = TRUE
+  column_names_centered = TRUE,
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize)
 )
 
 # Low abundance heatmap
 ht_low <- Heatmap(
   fig_low,
   name = "Low Ab\nlog fold\nchange",
+  cluster_columns = FALSE,
   show_row_names = TRUE,
   show_column_names = TRUE,
-  cluster_columns = FALSE,
-  row_names_gp = gpar(fontsize = row_fontsize),
-  column_names_gp = gpar(fontsize = col_fontsize),
   column_names_rot = 0,
-  column_names_centered = TRUE
+  column_names_centered = TRUE,
+  row_names_gp = gpar(fontsize = row_fontsize),
+  column_names_gp = gpar(fontsize = col_fontsize)
 )
 
 ht_list <- ht_high %v% ht_low

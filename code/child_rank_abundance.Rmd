@@ -12,7 +12,7 @@ The bar plot adds up the relative abundance of each ASV.
 NA are samples for which the genus was not identified.
 This shows a subset of the data -- "n_asv" specifies how many ASVs to include.
 ```{r rank_abundance_average}
-genus_avg <- get_avg_genus(ps_genus)
+genus_avg <- get_avg_genus(ps_ASV)
 top_asvs <- get_top_asvs(ps_ASV)
 
 ggplot() +
@@ -70,9 +70,8 @@ ggplot() +
 fname = "../figures/abund_avg.png"
 ggsave(fname, width = 8, height = 4, dpi = 300)
 ```
-# Stacked Bar Plot
 ```{r stacked}
-genus_size <- get_size_genus(ps_genus) 
+genus_size <- get_size_genus(ps_ASV) 
 n_display <- length(unique(genus_size$Genus)) - 1
 
 p <- ggplot(genus_size, aes(x = size.name, y = mean_ab, fill = fct_rev(Genus))) +
@@ -102,8 +101,8 @@ print(p)
 # Number of genus to display by size
 n_display <- 3
 
-genus_size <- get_size_genus(ps_genus) %>%
-  filter(Genus %in% genus_names[1:n_display])   
+genus_size <- get_size_genus(ps_ASV) %>%
+  filter(Genus %in% high_ab_genera[1:n_display])   
 
 p <- ggplot(genus_size, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) +
      geom_col(position = position_dodge(width = 0.8), width = 0.7) +
@@ -113,7 +112,7 @@ p <- ggplot(genus_size, aes(x = Genus, y = mean_ab, fill = as.factor(size.mm))) 
        position = position_dodge(width = 0.8)
      ) +
      scale_fill_manual(
-      values = met.brewer("Hiroshige", n_sizes),
+      values = met.brewer("Java", n_sizes),
       name = "Size [mm]"
      ) +
      scale_y_continuous(
@@ -132,16 +131,19 @@ ggsave(fname, plot = p, width = 8, height = 4, dpi = 300)
 
 print(p)
 ```
+
 # Single scatter plot
 This summarizes the relative abundance for one genus at a time.
 It shows the variation from the biological replicates.
 
 ```{r plot_scatter_single}
-#for (i in 1:length(genus_names)) {
+#for (i in 1:length(high_ab_genera)) {
 i <- 2
 
-gs <- convert_rel(ps_ASV) %>%
-  filter(Genus %in% genus_names[i], OTU %in% OTU_names)
+ps_rel_ASV <- get_rel_ASV(ps_ASV)
+
+gs <- ps_rel_ASV %>%
+  filter(Genus %in% high_ab_genera[i], OTU %in% OTU_names)
   gs %>%
     ggplot(aes(x = size.mm, y = Abundance, fill = OTU)) +
     geom_point(
@@ -151,13 +153,13 @@ gs <- convert_rel(ps_ASV) %>%
       stroke = 1
     ) +
     labs(
-       title = genus_names[i],
+       title = high_ab_genera[i],
        x = "Sieve Range [mm]",
        y = "Relative Abundance [%]",
      ) +
     theme_minimal(base_size = 14)   # sets text size
   
-  fname = paste0("../figures/genus_",genus_names[i], ".png")
+  fname = paste0("../figures/genus_",high_ab_genera[i], ".png")
   ggsave(fname, width = 9, height = 4, dpi = 300)
 #}
 ```
@@ -165,8 +167,9 @@ gs <- convert_rel(ps_ASV) %>%
 # Multiple subplots
 This combines multiple genera in subplots
 ```{r plot_scatter_multiple}
+ps_rel_ASV <- get_rel_ASV(ps_ASV)
 
-gs.group_plot <- convert_rel(ps_ASV) %>%
+gs.group_plot <- ps_rel_ASV %>%
   filter(Genus %in% c("Ca_Contendobacter", "Ca_Phosphoribacter"), OTU %in% OTU_names)
 
 ### plot
