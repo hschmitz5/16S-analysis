@@ -35,21 +35,21 @@ pair_samples <- cbind(size1, size2) %>%
       samples_y <- metadata %>% filter(size.name == .y) %>% pull(Sample)
       c(samples_x, samples_y)
     }),
-    conds = map(samples, function(samples_in_pair) {
-      # Get conditions
-      conds <- metadata$size.name[match(samples_in_pair, metadata$Sample)]
-    }),
-    res = map2(samples, comparison, function(samples_in_pair, comp_name) {
-      # Set a unique seed for each comparison name
-      seed_val <- as.integer(substr(digest::digest(comp_name), 1, 8), 16)
+    conds = map(samples, ~ metadata$size.name[match(.x, metadata$Sample)]),
+    res = pmap(list(comparison, samples, conds), function(comp_name, samples_in_pair, conds_in_pair) {
+      # generate deterministic seed
+      seed_val <- strtoi(substr(digest::digest(comp_name), 1, 8), base = 16)
       set.seed(seed_val)
-      # Subset counts table
-      reads <- as.data.frame(ps@otu_table) %>%
+      
+      # subset reads table
+      reads <- as.data.frame(ps_genus@otu_table) %>%
+        rownames_to_column(var = "OTU") %>%
+        left_join(taxonomy, by = "OTU") %>%
+        column_to_rownames(var = "Genus") %>%
         dplyr::select(all_of(samples_in_pair))
-      # Get conditions
-      conds <- metadata$size.name[match(samples_in_pair, metadata$Sample)]
-      # Run ALDEx2
-      aldex(reads, conds, denom = "all", test = "t", effect = TRUE)
+      
+      # run ALDEx2 once, using conds_in_pair
+      aldex(reads, conds_in_pair, denom = "all", test = "t", effect = TRUE)
     })
   ) %>%
   dplyr::select(comparison, conds, res)
