@@ -4,10 +4,10 @@ library(phyloseq)
 library(ANCOMBC)
 
 # Read in your data
-ps_genus <- readRDS("./data/ps_genus.rds")
+ps_ASV <- readRDS("../data/ps_ASV.rds") 
 
 # Get taxa names
-taxa_names_all <- taxa_names(ps_genus)
+taxa_names_all <- taxa_names(ps_ASV)
 
 # Randomly sample 150 taxa (or fewer if there aren’t that many)
 n_taxa <- min(150, length(taxa_names_all))
@@ -15,7 +15,7 @@ set.seed(123)  # for reproducibility
 taxa_subset <- sample(taxa_names_all, n_taxa)
 
 # Subset the phyloseq object
-ps_genus_small <- prune_taxa(taxa_subset, ps_genus)
+ps_small <- prune_taxa(taxa_subset, ps_ASV)
 
 contrast_mats = list(
   # monotonically increasing
@@ -28,7 +28,7 @@ contrast_mats = list(
 
 set.seed(456)  # for reproducibility
 output <- ancombc2(
-  data = ps_genus_small, 
+  data = ps_small, tax_level = "Genus",
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,

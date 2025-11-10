@@ -3,7 +3,11 @@ rm(list = ls())
 library(phyloseq)
 library(ANCOMBC)
 
-ps_genus <- readRDS("../data/ps_genus.rds") 
+ps_ASV <- readRDS("../data/ps_ASV.rds") 
+
+# Remove taxa not seen more than 3 times (reads) in at least 20% of the samples.
+# This protects against an OTU with small mean & trivially large C.V.
+ps_filt = filter_taxa(ps_ASV, function(x) sum(x > 3) >= (0.2*length(x)), TRUE)
 
 contrast_mats = list(
   # monotonically increasing
@@ -16,7 +20,7 @@ contrast_mats = list(
 
 set.seed(123)
 output <- ancombc2(
-  data = ps_genus, 
+  data = ps_filt, tax_level = "Genus",
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
