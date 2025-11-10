@@ -21,9 +21,38 @@ source("./R/00_setup.R")
 source("./R/01_load_data.R")
 source("./R/02_process_ps.R")
 source("./R/03_subset.R")
+source("./R/04_subset_DA.R")
+common_taxa <- get_common_taxa(ancom_fname, aldex_fname, high_ab_genera)
+```
+
+# Correlation
+```{r statistics}
+source("./R/bias_correct.R")
+bc_rel <- get_bc_abund(ancom_fname)
+bc_rel_filt <- bc_rel %>%
+  filter(Genus %in% common_taxa) %>%
+  group_by(Genus, size.name) %>%
+  summarise(mean_ab = mean(bc_abund),
+            sd_ab = sd(bc_abund))
+# Average Abundance per size
+bc_wide <- bc_rel_filt %>%
+  dplyr::select(Genus, size.name, mean_ab) %>%
+  pivot_wider(
+    names_from = size.name,
+    values_from = mean_ab
+  ) %>%
+  column_to_rownames("Genus") %>%
+  as.matrix()
+# Correlation
+res1 <- cor.test(bc_wide[1,], mu, method = "spearman")
+res2 <- cor.test(bc_wide[2,], mu, method = "spearman")
+res3 <- cor.test(bc_wide[3,], mu, method = "spearman")
+res4 <- cor.test(bc_wide[4,], mu, method = "spearman")
+res5 <- cor.test(bc_wide[5,], mu, method = "spearman") # 0.08 Novosphingobium
+res6 <- cor.test(bc_wide[6,], mu, method = "spearman") # 0.02 Thiothrix
 ```
 ### Differential Abundance
-```{r child='child_diff_ab_ancom2.Rmd'}
+```{r child='child_heatmaps_DA_ancom.Rmd'}
 ```
 ### Rank Abundance
 ```{r child='child_rank_abundance.Rmd'}
