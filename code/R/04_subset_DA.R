@@ -67,7 +67,7 @@ get_aldex_taxa <- function(aldex_fname, p_threshold, effect_threshold, high_ab_g
   return(all_sig_taxa)
 }
 
-get_common_taxa <- function() {
+get_common_taxa <- function(ancom_fname, aldex_fname, high_ab_genera) {
   # names of significant taxa
   all_taxa_ancom <- get_ancom_taxa(ancom_fname, write2excel = FALSE)
   high_ancom <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
