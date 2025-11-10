@@ -5,25 +5,33 @@ date: "2025-10-27"
 ---
 
 ```{r correlation}
-merged <- eps %>%
-  slice(-1) %>%
-  left_join(df, join_by(size.mm))
+merged <- as.data.frame(mu) %>%
+  rownames_to_column("size.mm") %>%
+  left_join(eps, join_by(size.mm)) %>%
+  mutate(size.midpoint = size_midpoint)
 
-merged$size.midpoint <- size_midpoint[as.numeric(merged$size.mm)]
+# Named list of variable pairs
+var_pairs <- list(
+  TB_mu = c("TB.avg", "mu"),
+  LB_mu = c("LB.avg", "mu"),
+  size_mu = c("size.midpoint", "mu")
+)
 
-# Spearman - non-parametric
-res1 <- cor.test(merged$TB.avg, merged$G1.avg, method = "spearman")
-res2 <- cor.test(merged$TB.avg, merged$G2.avg, method = "spearman")
-res3 <- cor.test(merged$LB.avg, merged$G1.avg, method = "spearman")
-res4 <- cor.test(merged$LB.avg, merged$G2.avg, method = "spearman")
-res5 <- cor.test(merged$size.midpoint, merged$G1.avg, method = "spearman")
-res6 <- cor.test(merged$size.midpoint, merged$G2.avg, method = "spearman")
+# One-liner to get estimates and p-values
+results <- map_dfr(var_pairs, ~ cor.test(merged[[.x[1]]], merged[[.x[2]]], method = "spearman") %>%
+                     broom::tidy(), .id = "comparison") %>%
+  dplyr::select(comparison, estimate, p.value)
+
+print(results)
+
 ```
-# G1 vs TB
+
+# mu vs TB
 ```{r tb}
-#mod <- lm(G1.avg ~ TB.avg, data = merged)
-ggplot(data = merged, aes(x = G1.avg, y = TB.avg, color = size.mm)) +
+#mod <- lm(mu ~ TB.avg, data = merged)
+ggplot(data = merged, aes(x = mu, y = TB.avg, color = size.mm)) +
   geom_point() +
+  scale_color_manual(values = met.brewer(size_pal, n_sizes)) +
   #geom_smooth(method = "lm") +
   theme_minimal()
 ```
@@ -46,7 +54,7 @@ ggplot(data = eps_long, aes(x = size.mm, y = pnps.avg, color = extract.type)) +
     width = 0.2,
     position = position_dodge(width = 0.2)
   ) +
-  scale_color_manual(values = met.brewer("Hiroshige", 2)) +
+  scale_color_manual(values = met.brewer(taxa_pal, 2)) +
   labs(
     x = "Size [mm]",
     y = "Mean PN/PS",
@@ -54,16 +62,16 @@ ggplot(data = eps_long, aes(x = size.mm, y = pnps.avg, color = extract.type)) +
   ) +
   theme_minimal(base_size = 16)
 print(getwd())
-ggsave("../results/PNPS.png")
+ggsave("../figures/PNPS.png")
 ```
 # Moduli
 ```{r moduli}
-ggplot(data = merged, aes(x = size.midpoint, y = G1.avg)) +
+ggplot(data = merged, aes(x = size.midpoint, y = mu)) +
   geom_point() +
   geom_smooth(method = "lm") +
   labs(
     x = "Size [mm]",
-    y = "Storage Modulus [Pa]"
+    y = "Mu"
   ) +
   theme_minimal()
 ```

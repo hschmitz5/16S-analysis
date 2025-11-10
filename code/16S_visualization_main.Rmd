@@ -106,9 +106,3 @@ print(corr_tb)
 # 
 # print(corr_lb)
 ```
-
-### Plots
-```{r make_plots}
-source("./R/plot_ordination.R")
-
-```
