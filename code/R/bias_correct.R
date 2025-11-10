@@ -5,8 +5,8 @@ get_bc_abund <- function(fname) {
   
   bc_out <- output$bias_correct_log_table
   
-  taxonomy <- get_taxonomy(ps_genus)
-  metadata <- get_metadata(ps_genus)
+  taxonomy <- get_taxonomy(ps_ASV)
+  metadata <- get_metadata(ps_ASV)
   
   bc_long <- bc_out %>%
     rownames_to_column("OTU") %>%

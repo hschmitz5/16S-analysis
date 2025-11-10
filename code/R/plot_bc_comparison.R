@@ -5,20 +5,22 @@ library(dplyr)
 library(ggplot2)
 library(patchwork)
 
+# names of significant taxa
+all_taxa_ancom <- get_ancom_taxa(ancom_fname, write2excel = FALSE)
+high_ab_taxa <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
+
 # Load Data
-table_bc_long <- get_bc_abund("./results/ancombc2_genus.rds") %>%
-  mutate(Genus = factor(Genus, levels = genus_names)) 
+table_bc_long <- get_bc_abund(ancom_fname) %>%
+  filter(Genus %in% high_ab_taxa) %>%
+  mutate(Genus = factor(Genus, levels = high_ab_genera)) 
 
-table_rel_long <- convert_rel(ps_genus) %>%
+table_rel_long <- get_rel_genus(ps_ASV) %>%
+  filter(Genus %in% high_ab_taxa) %>%
   dplyr::select(Sample, size.mm, size.name, Genus, Abundance) %>%
-  mutate(Genus = factor(Genus, levels = genus_names))
-
-# Filter both datasets for the same genera
-table_bc_long_filt <- table_bc_long %>% filter(Genus %in% high_ab_taxa)
-table_rel_long_filt <- table_rel_long %>% filter(Genus %in% high_ab_taxa)
+  mutate(Genus = factor(Genus, levels = high_ab_genera))
 
 # Merge into one long-format dataframe
-merged_long <- full_join(table_bc_long_filt, table_rel_long_filt, 
+merged_long <- full_join(table_bc_long, table_rel_long, 
                          by = c("Sample", "Genus", "size.mm", "size.name")) %>%
   pivot_longer(cols = c(bc_abund, Abundance),
                names_to = "Metric", values_to = "Value")
@@ -28,7 +30,6 @@ merged_long <- full_join(table_bc_long_filt, table_rel_long_filt,
 
 # Compute per-Genus scale & shift
 genus_scales <- merged_long %>%
-  filter(Genus %in% high_ab_taxa) %>%
   group_by(Genus) %>%
   summarise(
     bc_min = min(Value[Metric == "bc_abund"], na.rm = TRUE),
@@ -43,7 +44,6 @@ genus_scales <- merged_long %>%
 
 # Add scaled values to merged_long
 merged_scaled <- merged_long %>%
-  filter(Genus %in% high_ab_taxa) %>%
   left_join(genus_scales, by = "Genus") %>%
   mutate(
     Value_scaled = ifelse(Metric == "Abundance", Value * scale_factor + shift, Value)
