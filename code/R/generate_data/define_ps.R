@@ -11,15 +11,12 @@ size <- data.frame(
 )
 
 # Import QIIME2 data as phyloseq object
-ps0 <- qiime2R::qza_to_phyloseq(
+ps <- qiime2R::qza_to_phyloseq(
   features = "./data/qiime/table_dada2.qza",
   tree = "./data/qiime/rooted_tree.qza",
   taxonomy = "./data/qiime/taxonomy.qza",
   metadata = "./data/qiime/sample-metadata.tsv"
 )
-  
-# remove 0-0.85 mm granules
-ps <- subset_samples(ps0, size.mm != "0-0.85")
 
 ps@sam_data$size.mm <- factor(ps@sam_data$size.mm, levels = size$ranges)
 ps@sam_data$size.name <- factor(size$name[as.numeric(ps@sam_data$size.mm)], levels = size$name)
@@ -37,5 +34,8 @@ rarefy_level <- min(sample_sums(ps_filt0))  # lowest number of ASVs per sample
 ps_filt <-rarefy_even_depth(
   ps_filt0, rarefy_level, rngseed = 7, replace = TRUE, trimOTUs = TRUE, verbose = TRUE
 )
+
+# remove 0-0.85 mm granules
+ps_filt <- subset_samples(ps_filt, size.mm != "0-0.85")
   
-saveRDS(ps_filt, file = "./data/ps_ASV.rds")
+saveRDS(ps_filt, file = "./data/ps_ASV_subset.rds")
