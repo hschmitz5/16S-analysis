@@ -65,5 +65,5 @@ rm(genus_avg)
 
 # Define OTUs above rel_ab_cutoff
 top_asvs <- get_top_asvs(ps_ASV)
-OTU_names <- top_asvs$OTU
+high_ab_OTUs <- top_asvs$OTU
 rm(top_asvs)
