@@ -3,15 +3,14 @@ get_ancom_taxa <- function(fname_in, p_threshold, high_ab_genera, write2excel = 
   output <- readRDS(fname_in)
   
   all_sig_taxa <- output$res %>%
-    rename(Genus = taxon) %>%
     # Combines diff_size* and passed_ss* together
     pivot_longer(
       cols = matches("q_size\\.name|passed_ss_size\\.name"),
       names_to = c(".value","size"),
       names_pattern = "(q|passed_ss)_size\\.name(.*)"
     ) %>%
-    filter(q < p_threshold & passed_ss == TRUE & !is.na(Genus)) %>%   
-    pull(Genus) %>%
+    filter(q < p_threshold & passed_ss == TRUE & !is.na(taxon)) %>%   
+    pull(taxon) %>%
     unique() 
     
   # --- Write Data to Excel
