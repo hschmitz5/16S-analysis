@@ -11,7 +11,7 @@ output:
 ---
 # Correlate Taxa with mu
 ```{r corr_taxa_mu}
-print(getwd())
+rm(list = ls())
 
 source("./code/R/00_setup.R")
 source("./code/R/01_load_data.R")

@@ -9,6 +9,8 @@ output:
 
 # Ordination
 ```{r ordination, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8, fig.height=3}
+rm(list = ls())
+
 source("./code/R/plot_ordination.R")
 
 knitr::include_graphics(fname_ord)
