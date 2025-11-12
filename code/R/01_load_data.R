@@ -8,7 +8,7 @@ size_pal <- "Java"
 taxa_pal <- "Hiroshige"
 
 # File Names
-ps_fname <- "./data/ps_ASV.rds"
+ps_fname <- "./data/ps_ASV_subset.rds"
 ancom_fname <- "./data/ancombc2_genus.rds"
 aldex_fname <- "./data/aldex_t.rds"
 mech_fname <- "./data/EPS_moduli.xlsx"
