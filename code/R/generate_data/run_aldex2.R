@@ -5,22 +5,30 @@ library(digest)
 library(phyloseq)
 library(ALDEx2)
 
+genus_agglom <- FALSE
+
+fname_out <- "./data/aldex_ASV.rds"
+
 size1 <- c("M", "L", "XL", "XXL")
 size2 <- c("S", "S", "S", "S")     # reference group
 
-ps_ASV <- readRDS("./data/ps_ASV.rds") 
+ps_ASV <- readRDS("./data/ps_ASV_subset.rds") 
 
 # Remove taxa not seen more than 3 times (reads) in at least 20% of the samples.
 # This protects against an OTU with small mean & trivially large C.V.
 ps_filt = filter_taxa(ps_ASV, function(x) sum(x > 3) >= (0.2*length(x)), TRUE)
 
-# Agglomerate by Genus
-ps_genus <- tax_glom(ps_filt, taxrank = "Genus")
+if (genus_agglom == TRUE) {
+  # Agglomerate by Genus
+  ps <- tax_glom(ps_filt, taxrank = "Genus")
+} else {
+  ps <- ps_filt
+}
 
-metadata <- as.data.frame(as.matrix(ps_genus@sam_data)) %>%
+metadata <- as.data.frame(as.matrix(ps@sam_data)) %>%
   rownames_to_column("Sample") 
 
-taxonomy <- as.data.frame(as.matrix(ps_genus@tax_table)) %>%
+taxonomy <- as.data.frame(as.matrix(ps@tax_table)) %>%
   rownames_to_column("OTU")
 
 # Generate pairwise combinations
@@ -42,11 +50,16 @@ pair_samples <- cbind(size1, size2) %>%
       set.seed(seed_val)
       
       # subset reads table
-      reads <- as.data.frame(ps_genus@otu_table) %>%
-        rownames_to_column(var = "OTU") %>%
-        left_join(taxonomy, by = "OTU") %>%
-        column_to_rownames(var = "Genus") %>%
-        dplyr::select(all_of(samples_in_pair))
+      if (genus_agglom == TRUE) {
+        reads <- as.data.frame(ps@otu_table) %>%
+          rownames_to_column(var = "OTU") %>%
+          left_join(taxonomy, by = "OTU") %>%
+          column_to_rownames(var = "Genus") %>%
+          dplyr::select(all_of(samples_in_pair))
+      } else {
+        reads <- as.data.frame(ps@otu_table) %>%
+          dplyr::select(all_of(samples_in_pair))
+      }
       
       # run ALDEx2 once, using conds_in_pair
       aldex(reads, conds_in_pair, denom = "all", test = "t", effect = TRUE)
@@ -54,4 +67,4 @@ pair_samples <- cbind(size1, size2) %>%
   ) %>%
   dplyr::select(comparison, conds, res)
 
-saveRDS(pair_samples, file = "./results/aldex_t.rds")
+saveRDS(pair_samples, file = fname_out)
