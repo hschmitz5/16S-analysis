@@ -1,6 +1,6 @@
 get_avg_genus <- function(ps){
   # Average per Genus across all samples
-  genus_avg <- get_rel_genus(ps) %>% 
+  genus_avg <- get_rel_genus(ps) %>%
     filter(!is.na(Genus)) %>%
     group_by(Genus) %>%
     summarise(
@@ -17,17 +17,18 @@ get_avg_genus <- function(ps){
 
 get_size_genus <- function(ps){
   # display top n most abundant genera
-  n_display <- 10 
+  n_display <- 10
   
   # Average per Genus across replicates
   genus_size <- get_rel_genus(ps) %>%
+    mutate(Genus = as.character(Genus)) %>%  # ensure it's character
     group_by(Genus, size.mm, size.name) %>%
     summarise(
       mean_ab = mean(Abundance),
       sd_ab = sd(Abundance),
-      .groups = "drop") %>%  
+      .groups = "drop") %>%
     mutate(
-      Genus = ifelse(Genus %in% high_ab_genera[1:n_display], Genus, "Other")
+      Genus = ifelse(is.na(Genus) | !(Genus %in% high_ab_genera[1:n_display]), "Other", Genus)
     ) %>%
     group_by(Genus, size.mm, size.name) %>%
     summarise(
@@ -35,12 +36,12 @@ get_size_genus <- function(ps){
       sd_ab = ifelse(unique(Genus) == "Other", NA_real_, sd_ab),
       .groups = "drop"
     ) %>%
-    mutate(Genus = factor(Genus, levels = c(high_ab_genera, "Other")))
+    mutate(Genus = factor(Genus, levels = c(high_ab_genera[1:n_display], "Other")))
   
   return(genus_size)
 }
 
-# must use non-agglomerated data
+
 get_top_asvs <- function(ps){
   # Many genera have multiple ASVs in which one ASV is almost zero
   # Few have ASVs with a non-negligible abundance
@@ -48,10 +49,10 @@ get_top_asvs <- function(ps){
     filter(!is.na(Genus)) %>%
     group_by(Genus, OTU) %>%
     summarise(
-      mean_ab = mean(Abundance), 
+      mean_ab = mean(Abundance),
       sd_ab = sd(Abundance),
-      .groups = "drop") %>%  
-    arrange(desc(mean_ab)) %>%  
+      .groups = "drop") %>%
+    arrange(desc(mean_ab)) %>%
     filter(mean_ab > rel_ab_cutoff)
   
   return(top_asvs)

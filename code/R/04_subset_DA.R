@@ -1,6 +1,6 @@
-get_ancom_taxa <- function(ancom_fname, p_threshold, high_ab_genera, write2excel) {
+get_ancom_taxa <- function(fname_in, p_threshold, high_ab_genera, write2excel = FALSE, fname_out = NULL) {
   
-  output <- readRDS(ancom_fname)
+  output <- readRDS(fname_in)
   
   all_sig_taxa <- output$res %>%
     rename(Genus = taxon) %>%
@@ -13,18 +13,6 @@ get_ancom_taxa <- function(ancom_fname, p_threshold, high_ab_genera, write2excel
     filter(q < p_threshold & passed_ss == TRUE & !is.na(Genus)) %>%   
     pull(Genus) %>%
     unique() 
-  
-  # all_sig_taxa <- output$res %>%
-  #   rename(Genus = taxon) %>%
-  #   # Combines diff_size* and passed_ss* together
-  #   pivot_longer(
-  #     cols = matches("diff_size\\.name|passed_ss_size\\.name"),
-  #     names_to = c(".value","size"),
-  #     names_pattern = "(diff|passed_ss)_size\\.name(.*)"
-  #   ) %>%
-  #   filter(diff & passed_ss & !is.na(Genus)) %>%   
-  #   pull(Genus) %>%
-  #   unique() 
     
   # --- Write Data to Excel
   if (isTRUE(write2excel)) {
@@ -38,16 +26,15 @@ get_ancom_taxa <- function(ancom_fname, p_threshold, high_ab_genera, write2excel
       low_abundance  = sort(low_DA_taxa)
     )
     # Write to Excel
-    write_xlsx(taxa_df, path = "../results/ANCOM_taxa.xlsx")
+    write_xlsx(taxa_df, path = fname_out)
   } 
   return(all_sig_taxa)
 }
 
-get_aldex_taxa <- function(aldex_fname, p_threshold, effect_threshold, high_ab_genera, write2excel) {
+get_aldex_taxa <- function(fname_in, p_threshold, effect_threshold, high_ab_genera, 
+                           write2excel = FALSE, fname_out = NULL) {
   
-  output <- readRDS(aldex_fname) 
-  # Join taxonomy with aldex results
-  taxonomy <- get_taxonomy(ps_ASV)
+  output <- readRDS(fname_in) 
   
   all_sig_taxa <- output %>%
     mutate(
@@ -74,17 +61,17 @@ get_aldex_taxa <- function(aldex_fname, p_threshold, effect_threshold, high_ab_g
       low_abundance  = sort(low_DA_taxa)
     )
     # Write to Excel
-    write_xlsx(taxa_df, path = "../results/ALDEx2_taxa.xlsx")
+    write_xlsx(taxa_df, path = fname_out)
   }
   return(all_sig_taxa)
 }
 
 get_common_taxa <- function(ancom_fname, aldex_fname, p_threshold, effect_threshold, high_ab_genera) {
   # names of significant taxa
-  all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold, write2excel = FALSE)
+  all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold)
   high_ancom <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
   
-  all_taxa_aldex <- get_aldex_taxa(aldex_fname, p_threshold, effect_threshold, write2excel = FALSE)
+  all_taxa_aldex <- get_aldex_taxa(aldex_fname, p_threshold, effect_threshold)
   high_aldex <- high_ab_genera[high_ab_genera %in% all_taxa_aldex]
   
   common_taxa <- intersect(high_ancom, high_aldex) 

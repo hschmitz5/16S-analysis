@@ -1,10 +1,20 @@
-sam_name <- c("20A", "20B", "20C", "14A", "14B", "14C", "10A", "10B", "10C",
-              "7A", "7B", "7C", "5A", "5B", "5C")
+# Relative Abundance Cutoff (%) used to subset high abundance taxa
+rel_ab_cutoff <- 0.5
+# p-value used for filtering taxa (alpha)
+p_threshold   <- 0.05
 
-size_midpoint <- c(1.125, 1.7, 2.4, 3.4, 4.5)
-  
+# Color Palettes (MetBrewer)
+size_pal <- "Java"
+taxa_pal <- "Hiroshige"
+
+# File Names
+ps_fname <- "./data/ps_ASV.rds"
+ancom_fname <- "./data/ancombc2_genus.rds"
+aldex_fname <- "./data/aldex_t.rds"
+mech_fname <- "./data/EPS_moduli.xlsx"
+
 # absolute counts
-ps_ASV <- readRDS("../data/ps_ASV.rds") 
+ps_ASV <- readRDS(ps_fname)
 
 # define sample names
 size <- data.frame(
@@ -12,22 +22,18 @@ size <- data.frame(
   name = levels(ps_ASV@sam_data$size.name)
 )
 
-# define dimensions of sample grouping 
+# define dimensions of sample grouping
 n_replicates  <- 3
 n_sizes <- length(size$ranges)
 
+# For ordering
+sam_name <- c("20A", "20B", "20C", "14A", "14B", "14C", "10A", "10B", "10C",
+              "7A", "7B", "7C", "5A", "5B", "5C")
+# For correlation
+size_midpoint <- c(1.125, 1.7, 2.4, 3.4, 4.5)
+
 # Other Data
-eps <- read_excel("../data/EPS_loss.xlsx", range = cell_cols("A:E"))
-eps$size.mm <- factor(eps$size.mm, levels = size$ranges, ordered = TRUE)
-# rheology <- read_excel("../data/EPS_loss.xlsx", range = cell_cols("G:K"))
-# rheology$size.mm <- factor(rheology$size.mm, levels = size$ranges, ordered = TRUE)
-
-# Spring Pot coefficient
-mu <- setNames(
-  c(4.19, 3.21, 2.58, 2.39, 1.84), 
-  size$ranges
-)
-
-# Differential Abundance files
-ancom_fname <- "../results/ancombc2_genus.rds"
-aldex_fname <- "../results/aldex_t.rds"
+eps <- read_excel(mech_fname, range = cell_cols("A:E"))
+eps$size.name = factor(eps$size.name, levels = size$name)
+mu <- read_excel(mech_fname, range = cell_cols("G:H"))
+mu$size.name = factor(mu$size.name, levels = size$name)

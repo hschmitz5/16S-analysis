@@ -1,12 +1,17 @@
 # The bias corrected data are only comparable for individual taxa changes
-# This means you cannot make a combined plot like a stacked bar plot unfortunately
+# This means you cannot make a combined plot like a stacked bar plot 
 
-library(dplyr)
-library(ggplot2)
-library(patchwork)
+source("./code/R/00_setup.R")
+source("./code/R/01_load_data.R")
+source("./code/R/02_process_ps.R")
+source("./code/R/03_subset.R")
+source("./code/R/04_subset_DA.R")
+source("./code/R/05_bias_correct.R")
 
+fname_out <- "./figures/BC_comparison.png"
+  
 # names of significant taxa
-all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold, write2excel = FALSE)
+all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold, write2excel = FALSE, fname_out = NULL)
 high_ab_taxa <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
 
 # Load Data
@@ -28,56 +33,39 @@ merged_long <- full_join(table_bc_long, table_rel_long,
 
 # ---- Plotting -------
 
-# Compute per-Genus scale & shift
-genus_scales <- merged_long %>%
-  group_by(Genus) %>%
-  summarise(
-    bc_min = min(Value[Metric == "bc_abund"], na.rm = TRUE),
-    bc_max = max(Value[Metric == "bc_abund"], na.rm = TRUE),
-    ab_min = min(Value[Metric == "Abundance"], na.rm = TRUE),
-    ab_max = max(Value[Metric == "Abundance"], na.rm = TRUE)
-  ) %>%
-  mutate(
-    scale_factor = (bc_max - bc_min) / (ab_max - ab_min),
-    shift = bc_min - ab_min * scale_factor
-  )
-
-# Add scaled values to merged_long
 merged_scaled <- merged_long %>%
-  left_join(genus_scales, by = "Genus") %>%
+  group_by(Genus) %>%
   mutate(
-    Value_scaled = ifelse(Metric == "Abundance", Value * scale_factor + shift, Value)
-  )
+    # Scale bc_abund to the range of Abundance
+    Value_scaled = case_when(
+      Metric == "bc_abund" ~ (Value - min(Value[Metric=="bc_abund"], na.rm=TRUE)) /
+        (max(Value[Metric=="bc_abund"], na.rm=TRUE) -
+           min(Value[Metric=="bc_abund"], na.rm=TRUE)) *
+        (max(Value[Metric=="Abundance"], na.rm=TRUE) -
+           min(Value[Metric=="Abundance"], na.rm=TRUE)) +
+        min(Value[Metric=="Abundance"], na.rm=TRUE),
+      TRUE ~ Value  # Abundance stays as-is
+    )
+  ) %>%
+  ungroup()
 
-plots <- list()  # store individual plots
+my_colors <- met.brewer(taxa_pal, 2)
 
-for (g in high_ab_taxa) {
-  df <- merged_scaled %>% filter(Genus == g)
-  
-  p <- ggplot(df, aes(x = size.name, y = Value_scaled, color = Metric)) +
-    geom_point(position = position_jitter(width = 0.2), size = 3) +
-    scale_y_continuous(
-      name = "Bias-corrected abundance",
-      sec.axis = sec_axis(~ (. - unique(df$shift)) / unique(df$scale_factor),
-                          name = "Relative abundance [%]")
-    ) +
-    scale_color_manual(values = c("bc_abund" = "blue", "Abundance" = "red")) +
-    theme_bw() +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      legend.position = "top"
-    ) +
-    labs(title = g, x = "Size class", color = "Metric")
-  
-  plots[[g]] <- p
-}
-
-# Stack all vertically
-combined_plot <- wrap_plots(plots, ncol = 4)
+p <- ggplot(merged_scaled, aes(x = size.name, y = Value_scaled, color = Metric)) +
+  geom_point(position = position_jitter(width = 0.2), size = 3) +
+  scale_y_continuous(name = "Abundance") +   # single axis
+  scale_color_manual(
+    values = c("bc_abund" = my_colors[1], "Abundance" = my_colors[2]),
+    labels = c("bc_abund" = "Bias-corrected abundance", 
+               "Abundance" = "Relative abundance [%]")) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    legend.position = "top"
+  ) +
+  facet_wrap(~Genus, scales = "free_y", ncol = 3) +
+  labs(x = "Size", 
+       color = "Metric")
 
 # Save the plot
-ggsave("figures/all_high_ab_taxa.png", combined_plot,
-       width = 36,
-       height = 2 * length(plots),  # ~4 inches per subplot
-       dpi = 300,
-       limitsize = FALSE)
+ggsave(fname_out, p, width = 9, height = 8, dpi = 300)

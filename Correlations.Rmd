@@ -1,0 +1,107 @@
+---
+title: "Statistics"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  html_notebook:
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+---
+# Correlate Taxa with mu
+```{r corr_taxa_mu}
+print(getwd())
+
+source("./code/R/00_setup.R")
+source("./code/R/01_load_data.R")
+source("./code/R/02_process_ps.R")
+source("./code/R/03_subset.R")
+source("./code/R/04_subset_DA.R")
+source("./code/R/05_bias_correct.R")
+
+# Choose DA taxa
+all_taxa_ancom <- get_ancom_taxa(ancom_fname, p_threshold)
+DA_taxa <- high_ab_genera[high_ab_genera %in% all_taxa_ancom]
+# Common taxa (ANCOM & ALDEx)
+# DA_taxa <- get_common_taxa(ancom_fname, aldex_fname, p_threshold, effect_threshold, high_ab_genera)
+
+bc_wide <- get_bc_abund(ancom_fname) %>%
+  filter(Genus %in% DA_taxa) %>%
+  group_by(Genus, size.name) %>%
+  summarise(mean_ab = mean(bc_abund), sd_ab = sd(bc_abund), .groups = "drop") %>%
+  dplyr::select(Genus, size.name, mean_ab) %>%
+  pivot_wider(
+    names_from = size.name,
+    values_from = mean_ab
+  ) %>%
+  column_to_rownames("Genus") %>%
+  as.matrix()
+
+# Correlation
+corr_mu <- map_dfr(1:nrow(bc_wide), function(i) {
+  res <- cor.test(bc_wide[i, ], mu$mu, method = "spearman")
+  tibble(
+    Genus = rownames(bc_wide)[i],
+    # correlation coefficient (+ increasing, - decreasing)
+    estimate = res$estimate, 
+    p.value = res$p.value
+  ) %>%
+  filter(p.value < p_threshold)
+})
+
+print(corr_mu)
+```
+
+# Correlate Taxa with EPS
+```{r corr_taxa_eps}
+corr_tb <- map_dfr(1:nrow(bc_wide), function(i) {
+  res <- cor.test(bc_wide[i, ], eps$TB.avg, method = "spearman")
+  tibble(
+    Genus = rownames(bc_wide)[i],
+    # correlation coefficient (+ increasing, - decreasing)
+    estimate = res$estimate, 
+    p.value = res$p.value
+  ) %>%
+  filter(p.value < p_threshold)
+})
+
+print(corr_tb)
+
+# corr_lb <- map_dfr(1:nrow(bc_wide), function(i) {
+#   res <- cor.test(bc_wide[i, ], eps$LB.avg, method = "spearman")
+#   tibble(
+#     Genus = rownames(bc_wide)[i],
+#     # correlation coefficient (+ increasing, - decreasing)
+#     estimate = res$estimate, 
+#     p.value = res$p.value
+#   ) %>%
+#   filter(p.value < p_threshold)
+# })
+# 
+# print(corr_lb)
+```
+
+# Correlate mu and EPS and size
+```{r corr}
+merged <- as.data.frame(mu) %>%
+  left_join(eps, join_by(size.name)) %>%
+  mutate(size.midpoint = size_midpoint)
+
+# Named list of variable pairs
+var_pairs <- list(
+  TB_mu = c("TB.avg", "mu"),
+  LB_mu = c("LB.avg", "mu"),
+  size_mu = c("size.midpoint", "mu"),
+  size_TB = c("size.midpoint", "TB.avg"),
+  size_LB = c("size.midpoint", "LB.avg")
+)
+
+# One-liner to get estimates and p-values
+results <- map_dfr(var_pairs, ~ cor.test(merged[[.x[1]]], merged[[.x[2]]], method = "spearman") %>%
+                     broom::tidy(), .id = "comparison") %>%
+  dplyr::select(comparison, estimate, p.value)
+
+print(results)
+
+```

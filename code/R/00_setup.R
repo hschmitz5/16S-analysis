@@ -1,11 +1,10 @@
 suppressPackageStartupMessages({
   # ---- Packages ----
-  library(tidyverse)
-  library(phyloseq)
-  library(ComplexHeatmap)
   library(readxl)
-  library(writexl)
-  #library(vegan)
+  library(phyloseq)
+  library(tidyverse)
+  # formatting figures
+  library(patchwork)
   # colors
   library(RColorBrewer)
   library(MetBrewer) # fun color palettes
