@@ -9,9 +9,9 @@ library(ComplexHeatmap)
 write2excel <- FALSE
 n_display_low <- 30
 
-fname_excel <- "../results/ANCOM_taxa.xlsx"
-fname_high <- "./figures/DA_ancom_high.png"
-fname_low  <- "./figures/DA_ancom_low.png"
+fname_excel <- "./data/ANCOM_taxa.xlsx"
+fname_high  <- "./figures/DA_ancom_high.png"
+fname_low   <- "./figures/DA_ancom_low.png"
 
 # Cell height in inches (adjust as needed)
 cell_h <- 0.2
