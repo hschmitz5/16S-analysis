@@ -1,9 +1,8 @@
-#fname <- "../results/ancombc2_genus.rds" 
 get_bc_abund <- function(fname) {
   
   output <- readRDS(fname)
   
-  metadata <- get_metadata(ps_ASV)
+  metadata <- get_metadata(ps)
   
   bc_long <- output$bias_correct_log_table %>%
     rownames_to_column("Genus") %>%

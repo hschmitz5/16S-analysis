@@ -26,11 +26,11 @@ get_avg_OTUs <- function(ps){
 }
 
 # Define genera above rel_ab_cutoff
-genus_avg <- get_avg_genus(ps_ASV)
+genus_avg <- get_avg_genus(ps)
 high_ab_genera <- genus_avg$Genus
 rm(genus_avg)
 
 # Define OTUs above rel_ab_cutoff
-OTU_avg <- get_avg_OTUs(ps_ASV)
+OTU_avg <- get_avg_OTUs(ps)
 high_ab_OTUs <- OTU_avg$OTU
 rm(OTU_avg)
