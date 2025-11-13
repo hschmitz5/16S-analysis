@@ -8,18 +8,18 @@ size_pal <- "Java"
 taxa_pal <- "Hiroshige"
 
 # File Names
-ps_fname <- "./data/ps_ASV_subset.rds"
+ps_fname    <- "./data/ps_ASV_subset.rds"
 ancom_fname <- "./data/ancombc2_genus.rds"
 aldex_fname <- "./data/aldex_t.rds"
-mech_fname <- "./data/EPS_moduli.xlsx"
+mech_fname  <- "./data/EPS_moduli.xlsx"
 
 # absolute counts
-ps_ASV <- readRDS(ps_fname)
+ps <- readRDS(ps_fname)
 
 # define sample names
 size <- data.frame(
-  ranges = levels(ps_ASV@sam_data$size.mm),
-  name = levels(ps_ASV@sam_data$size.name)
+  ranges = levels(ps@sam_data$size.mm),
+  name = levels(ps@sam_data$size.name)
 )
 
 # define dimensions of sample grouping
