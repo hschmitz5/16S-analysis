@@ -8,62 +8,29 @@ get_avg_genus <- function(ps){
       sd_ab = sd(Abundance),
       .groups = "drop") %>%
     filter(mean_ab > rel_ab_cutoff) %>%
-    arrange(desc(mean_ab)) %>%
-    # Factor the genus based on relative abundance
-    mutate(Genus = forcats::fct_reorder(Genus, mean_ab, .desc = TRUE))
-  
-  return(genus_avg)
+    arrange(desc(mean_ab)) 
 }
 
-get_size_genus <- function(ps){
-  # display top n most abundant genera
-  n_display <- 10
-  
-  # Average per Genus across replicates
-  genus_size <- get_rel_genus(ps) %>%
-    mutate(Genus = as.character(Genus)) %>%  # ensure it's character
-    group_by(Genus, size.mm, size.name) %>%
-    summarise(
-      mean_ab = mean(Abundance),
-      sd_ab = sd(Abundance),
-      .groups = "drop") %>%
-    mutate(
-      Genus = ifelse(is.na(Genus) | !(Genus %in% high_ab_genera[1:n_display]), "Other", Genus)
-    ) %>%
-    group_by(Genus, size.mm, size.name) %>%
-    summarise(
-      mean_ab = sum(mean_ab),
-      sd_ab = ifelse(unique(Genus) == "Other", NA_real_, sd_ab),
-      .groups = "drop"
-    ) %>%
-    mutate(Genus = factor(Genus, levels = c(high_ab_genera[1:n_display], "Other")))
-  
-  return(genus_size)
-}
-
-
-get_top_asvs <- function(ps){
+get_avg_OTUs <- function(ps){
   # Many genera have multiple ASVs in which one ASV is almost zero
   # Few have ASVs with a non-negligible abundance
-  top_asvs <- get_rel_ASV(ps) %>%
+  OTU_avg <- get_rel_ASV(ps) %>%
     filter(!is.na(Genus)) %>%
     group_by(Genus, OTU) %>%
     summarise(
       mean_ab = mean(Abundance),
       sd_ab = sd(Abundance),
       .groups = "drop") %>%
-    arrange(desc(mean_ab)) %>%
-    filter(mean_ab > rel_ab_cutoff)
-  
-  return(top_asvs)
+    filter(mean_ab > rel_ab_cutoff) %>%
+    arrange(desc(mean_ab)) 
 }
 
 # Define genera above rel_ab_cutoff
 genus_avg <- get_avg_genus(ps_ASV)
-high_ab_genera <- levels(genus_avg$Genus)
+high_ab_genera <- genus_avg$Genus
 rm(genus_avg)
 
 # Define OTUs above rel_ab_cutoff
-top_asvs <- get_top_asvs(ps_ASV)
-high_ab_OTUs <- top_asvs$OTU
-rm(top_asvs)
+OTU_avg <- get_avg_OTUs(ps_ASV)
+high_ab_OTUs <- OTU_avg$OTU
+rm(OTU_avg)
