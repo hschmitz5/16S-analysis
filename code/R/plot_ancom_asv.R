@@ -52,7 +52,7 @@ process_lfc <- function(df, taxa) {
 }
 
 # !!! Rename OTUs
-taxonomy <- get_taxonomy(ps_ASV)
+taxonomy <- get_taxonomy(ps)
 
 output <- readRDS(ancom_fname)
 
@@ -60,9 +60,15 @@ res_prim = output$res %>%
   rename(OTU = taxon) %>%
   left_join(taxonomy, by = "OTU") %>%
   group_by(Genus) %>%
+  #arrange(desc(number), .by_group = TRUE) %>%  sort by high_ab_OTUs
   mutate(
-    name_numbered = ifelse(n() == 1, Genus, paste0(Genus, "-", row_number()))
-  )
+    name_numbered = if (n() == 1) {
+      Genus
+    } else {
+      paste0(Genus, "-", row_number())
+    }
+  ) %>%
+  ungroup()
 
 
 
