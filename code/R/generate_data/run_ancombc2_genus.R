@@ -3,7 +3,7 @@ rm(list = ls())
 library(phyloseq)
 library(ANCOMBC)
 
-fname_out <- "../results/ancombc2_ASV.rds"
+fname_out <- "../results/ancombc2_genus.rds"
 
 ps_ASV <- readRDS("../data/ps_ASV_subset.rds") 
 
@@ -22,7 +22,7 @@ contrast_mats = list(
 
 set.seed(123)
 output <- ancombc2(
-  data = ps_filt,
+  data = ps_filt, tax_level = "Genus",
   fix_formula = "size.name",    
   group = "size.name",
   struc_zero = TRUE,
