@@ -32,22 +32,22 @@ df$label <- factor(df$label, levels = labels)
 
 p <- ggplot(df, aes(x = mid, y = percent, fill = label, width = width)) +
   geom_bar(stat = "identity", alpha = 0.8) +
-  scale_fill_manual(values = colors, name = "Sieve Range [mm]") +
+  scale_fill_manual(values = colors, name = "") +
   scale_x_continuous(breaks = x0[-length(x0)], labels = x0[-length(x0)]) +
   labs(x = "Sieve Range [mm]",
        y = "Mass Percent [%]") +
-  theme_minimal(base_size = 16) +
+  theme_minimal(base_size = 12) +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
-    axis.text.y = element_text(size = 14),
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12),
-    panel.grid.minor = element_blank()
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  guides(
+    fill = guide_legend(byrow = TRUE)   
   )
 
 # Save figure -------------------------------------------------------
 
-ggsave(fname, p, width = 9, height = 6, dpi = 300)
+ggsave(fname, p, width = 6, height = 5, dpi = 300)
 
 # Display
 print(p)
