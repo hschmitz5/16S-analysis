@@ -1,5 +1,5 @@
-library(ggplot2)
-library(dplyr)
+source("./code/R/00_setup.R")
+source("./code/R/01_load_data.R")
 
 # Data -------------------------------------------------------------
 fname <- "./figures/mass-percent.png"
@@ -10,8 +10,7 @@ labels <- c("< 0.21", "0.21 - 0.43", "0.43 - 0.60",
             "2.8 - 4.0", "> 4.0")
 y <- c(27.29, 19.05, 5.05, 11.88, 7.59, 9.85, 10.62, 8.67)
 
-colors <- c("black", "gray", "#444444", "#663171", "#cf3a36",
-            "#ea7428", "#e2998a", "#0c7156")
+colors <- c("black", "gray", "#444444", met.brewer(size_pal, n_sizes))
 
 # Compute widths and midpoints -------------------------------------
 
@@ -36,7 +35,7 @@ p <- ggplot(df, aes(x = mid, y = percent, fill = label, width = width)) +
   scale_x_continuous(breaks = x0[-length(x0)], labels = x0[-length(x0)]) +
   labs(x = "Sieve Range [mm]",
        y = "Mass Percent [%]") +
-  theme_minimal(base_size = 12) +
+  theme_minimal(base_size = 14) +
   theme(
     legend.position = "top",
     axis.text.x = element_text(angle = 45, hjust = 1)
