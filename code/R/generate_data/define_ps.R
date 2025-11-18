@@ -37,7 +37,7 @@ ps_filt <-rarefy_even_depth(
 
 saveRDS(ps_filt, file = "./data/ps_ASV_full.rds")
 
-# remove 0-0.85 mm granules
-ps_sub <- subset_samples(ps_filt, size.mm != "0-0.85")
+# remove XS granules
+ps_sub <- subset_samples(ps_filt, size.mm != "0.43-0.85")
   
 saveRDS(ps_sub, file = "./data/ps_ASV_subset.rds")
