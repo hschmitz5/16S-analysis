@@ -20,13 +20,17 @@ p1 <- plot_ordination(ps, ps.ord1, type="samples", color="size.name") +
   scale_color_manual(values = cols) +
   labs(title="Granular biomass", color = "Size") +
   theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(size = 12)) +
   guides(color = "none")
 
 p2 <- plot_ordination(ps_full, ps.ord2, type="samples", color="size.name") +
   scale_color_manual(values = c("gray", cols)) +
   labs(title="Flocs & granules", color = "Size") +
   theme_minimal(base_size = 12) +
-  theme(legend.position = "bottom") +
+  theme(
+    plot.title = element_text(size = 12),   
+    legend.position = "bottom"
+  ) +
   guides(color = guide_legend(nrow = 1))
 
 # Extract the legend
@@ -35,8 +39,8 @@ leg <- get_legend(p2)
 # Remove legend from p2
 p2_clean <- p2 + theme(legend.position = "none")
 
-ordination_plot <- (p1 | p2_clean) / 
-  patchwork::wrap_elements(full = leg) +   # add legend 
+ordination_plot <- (p1 | p2_clean) /
+  patchwork::wrap_elements(full = leg) +   # add legend
   plot_layout(heights = c(10, 1)) +        # allocate space: 10 units for plots, 1 unit for legend
   plot_annotation(
     title = "PCoA (wunifrac)"
