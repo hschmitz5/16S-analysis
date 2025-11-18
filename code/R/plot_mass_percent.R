@@ -33,7 +33,7 @@ p <- ggplot(df, aes(x = mid, y = percent, fill = label, width = width)) +
   geom_bar(stat = "identity", alpha = 0.8) +
   scale_fill_manual(values = colors, name = "") +
   scale_x_continuous(breaks = x0[-length(x0)], labels = x0[-length(x0)]) +
-  labs(x = "Sieve Range [mm]",
+  labs(x = "Granule Diameter [mm]",
        y = "Mass Percentage [%]") +
   theme_minimal(base_size = 14) +
   theme(
