@@ -32,10 +32,8 @@ p <- ggplot(df) +
     aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label, pattern = label),
     color = "black", linewidth = 0.2,  # outline
     pattern_fill = "black", 
-    pattern_angle = 45,
     pattern_density = 0.1,
-    pattern_spacing = 0.04,
-    pattern_key_scale_factor = 0.5
+    pattern_spacing = 0.04
   ) +
   scale_fill_manual(values = colors) +
   scale_pattern_manual(values = patterns) +
