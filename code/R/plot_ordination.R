@@ -1,7 +1,6 @@
 rm(list = ls())
 source("./code/R/00_setup.R")
 source("./code/R/01_load_data.R")
-source("./code/R/02_process_ps.R")
 
 fname_ord <- "./figures/ordination-PCoA.png"
 
