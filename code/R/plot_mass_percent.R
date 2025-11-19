@@ -5,7 +5,7 @@ source("./code/R/01_load_data.R")
 # Data -------------------------------------------------------------
 fname <- "./figures/mass-percent.png"
 
-x0 <- c(0, 0.21, 0.43, 0.60, 1.4, 2.0, 2.8, 4.0, 5.0)   # sieve boundaries
+x_edges <- c(0, 0.21, 0.43, 0.60, 1.4, 2.0, 2.8, 4.0, 5.0)   # sieve boundaries
 labels <- c("< 0.21", "0.21 - 0.43", "0.43 - 0.60", 
             "0.60 - 1.4", "1.4 - 2.0", "2.0 - 2.8", 
             "2.8 - 4.0", "> 4.0")
@@ -16,8 +16,8 @@ colors <- c("black", "white", "gray", met.brewer(size_pal, n_sizes))
 patterns <- c("none", "stripe", "none", "none", "none", "none", "none", "none")
 
 df <- data.frame(
-  xmin = x0[-length(x0)],  # removes last element
-  xmax = x0[-1],           # removes first element 
+  xmin = x_edges[-length(x_edges)],  # removes last element
+  xmax = x_edges[-1],           # removes first element 
   ymin = 0,
   ymax = mass_percent,
   label = factor(labels, levels = labels),
@@ -39,8 +39,8 @@ p <- ggplot(df) +
   scale_pattern_manual(values = patterns) +
   # control x-axis tick labels
   scale_x_continuous(
-    breaks = x0[-length(x0)],
-    labels = x0[-length(x0)]
+    breaks = x_edges[-length(x_edges)],
+    labels = x_edges[-length(x_edges)]
   ) +
   labs(
     x = "Granule Diameter [mm]",
