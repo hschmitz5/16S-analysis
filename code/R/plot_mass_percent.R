@@ -14,30 +14,23 @@ mass_percent <- c(27.29, 19.05, 5.05, 11.88, 7.59, 9.85, 10.62, 8.67)
 
 colors <- c("black", "white", "gray", met.brewer(size_pal, n_sizes))
 
-patterns <- c("none", "stripe", "none", "none", "none", "none", "none", "none")
-
 df <- data.frame(
   xmin = x_edges[-length(x_edges)],  # removes last element
   xmax = x_edges[-1],                # removes first element 
   ymin = 0,
   ymax = mass_percent,
   label = factor(labels, levels = labels),
-  color = colors,
-  pattern = patterns
+  color = colors 
 )
 
 # Plot --------------------------------------------------------------
 
 p <- ggplot(df) +
-  geom_rect_pattern(
-    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label, pattern = label),
-    color = "black", linewidth = 0.2,  # outline
-    pattern_fill = "black", 
-    pattern_density = 0.1,
-    pattern_spacing = 0.04
+  geom_rect(
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label), 
+    color = "black", linewidth = 0.2  # outline
   ) +
   scale_fill_manual(values = colors) +
-  scale_pattern_manual(values = patterns) +
   # control x-axis tick labels
   scale_x_continuous(
     breaks = x_edges[-length(x_edges)],
@@ -46,8 +39,7 @@ p <- ggplot(df) +
   labs(
     x = "Granule Diameter [mm]",
     y = "Mass Percentage [%]",
-    fill = "",
-    pattern = ""
+    fill = ""
   ) +
   theme_minimal(base_size = 14) +
   theme(
