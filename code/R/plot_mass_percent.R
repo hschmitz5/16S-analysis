@@ -1,4 +1,3 @@
-library(ggpattern)
 source("./code/R/00_setup.R")
 source("./code/R/01_load_data.R")
 
