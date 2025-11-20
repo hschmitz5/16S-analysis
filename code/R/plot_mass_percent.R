@@ -36,7 +36,7 @@ p <- ggplot(df) +
     labels = x_edges[-length(x_edges)]
   ) +
   labs(
-    x = "Granule Diameter [mm]",
+    x = "Biomass Diameter [mm]",
     y = "Mass Percentage [%]",
     fill = ""
   ) +
